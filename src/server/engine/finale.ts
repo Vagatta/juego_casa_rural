@@ -58,7 +58,10 @@ export function computeFinale(g: Game): Omit<FinaleView, 'step' | 'roles'> {
   // impune, la familia cobra — él gana aunque la casa se haya salvado.
   const padrino = everyone.find((p) => p.roleId === 'padrino');
   const padrinoWon =
-    padrino?.ahijadoId && cucos.some((c) => c.id === padrino.ahijadoId && !unmasked.includes(c.id)) ? padrino.id : null;
+    padrino?.ahijadoId &&
+    cucos.some((c) => c.id === padrino.ahijadoId && !c.left && !unmasked.includes(c.id))
+      ? padrino.id
+      : null;
   if (padrinoWon) add(padrinoWon, FINAL_BONUS.padrino);
 
   // El Ermitaño cumplió su voto de silencio si no votó en ningún juicio

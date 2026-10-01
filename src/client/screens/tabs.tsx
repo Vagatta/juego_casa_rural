@@ -62,7 +62,7 @@ export function MissionsTab() {
             <article key={m.id} className={m.suspect || m.saboteur ? 'note tape note--suspect' : 'note tape'}>
               {m.suspect && <p className="note__suspect"><GIcon id="mirilla" size={13} /> Orden de la casa — estás bajo sospecha. Todos lo saben.</p>}
               {m.saboteur && <p className="note__suspect"><GIcon id="mentira" size={13} /> Orden oscura — sabotaje. Nadie más la conoce.</p>}
-              {m.partner && <p className="note__suspect"><GIcon id="pareja" size={13} /> {m.partner.includes(' y ') ? `Misión de corro — tus cómplices son ${m.partner}.` : `Misión en pareja — tu cómplice es ${m.partner}.`}</p>}
+              {m.partner && <p className="note__suspect"><GIcon id="pareja" size={13} /> {m.corro ? `Misión de corro — tus cómplices son ${m.partner}.` : `Misión en pareja — tu cómplice es ${m.partner}.`}</p>}
               {m.custom && <p className="note__suspect"><GIcon id="casa" size={13} /> Misión de la casa — la escribió vuestro anfitrión.</p>}
               {m.expiresAt && <LightningTimer endsAt={m.expiresAt} />}
               <p className="note__text">{m.text}</p>
@@ -467,6 +467,7 @@ export function MeTab() {
         <PrivacyGate id={`me:${view.code}`} title="Tu identidad">
           <RoleCard role={me.role} flipped={flipped} onFlip={() => setFlipped(!flipped)} teammates={me.teammates} players={view.players} />
           {me.role.faction === 'cuco' && <p className="chip chip--danger" style={{ alignSelf: 'center' }}><GIcon id="cerilla" size={14} /> Cerillas: {me.cerillas}</p>}
+          {me.ahijado && <p className="chip chip--warn" style={{ alignSelf: 'center' }}><GIcon id="padrino" size={14} /> Tu ahijado: {me.ahijado}</p>}
         </PrivacyGate>
       )}
       {view.phase === 'INVESTIGATION' && <AbilityPanel />}

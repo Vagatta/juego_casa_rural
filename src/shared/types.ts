@@ -193,6 +193,8 @@ export interface MissionView {
   suspect?: boolean;
   /** Misión en pareja: nombre del cómplice */
   partner?: string;
+  /** Misión de corro: `partner` trae los dos cómplices */
+  corro?: boolean;
   /** Orden secreta de sabotaje en la prueba de equipo */
   saboteur?: boolean;
   /** Escrita por el anfitrión para este grupo concreto */
@@ -231,6 +233,8 @@ export interface MeView {
   prediction: string | null;
   /** Bajo sospecha: puede dejar una carta anónima que la casa leerá la próxima ronda */
   canLetter?: boolean;
+  /** El Padrino: nombre de su ahijado (solo lo ve él) */
+  ahijado?: string;
 }
 
 export interface Award {

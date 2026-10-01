@@ -3,7 +3,7 @@ import { gameContent, type EventDef } from '../content.ts';
 import { deliverClue, randomClue } from './clues.ts';
 import { assignMission } from './missions.ts';
 import { chance, pick, sample } from './rng.ts';
-import { type Game, type Outbox, activePlayers, announce, currentPlan, earn, isCuco, nameOf, toast } from './state.ts';
+import { type Game, type Outbox, activePlayers, announce, currentPlan, earn, getPlayer, isCuco, nameOf, toast } from './state.ts';
 
 const EVENT_CHANCE = { clasico: 0.5, caos: 0.9, sofa: 0.45 } as const;
 
@@ -15,7 +15,8 @@ export function eligibleEvents(g: Game): EventDef[] {
       (!e.modes || e.modes.includes(g.settings.mode)) &&
       (e.minRound ?? 2) <= g.roundIndex + 1 &&
       (!e.requiresJudgment || plan?.hasJudgment) &&
-      !(e.effect.type === 'cuco_mission' && g.cucoCount === 0),
+      !(e.effect.type === 'cuco_mission' && g.cucoCount === 0) &&
+      !(e.effect.type === 'laden_vote' && !g.condemned.some((id) => !getPlayer(g, id).left)),
   );
 }
 
@@ -62,7 +63,7 @@ export function applyEvent(g: Game, eventId: string, out: Outbox): void {
       else if (richest && richest.id !== poorest.id) {
         const moved = Math.min(effect.amount, richest.coins);
         richest.coins -= moved;
-        poorest.coins += moved;
+        earn(g, poorest, moved, false);
         announce(g, `${richest.name} le da ${moved} 🪙 a ${poorest.name}.`, 'info');
       }
       break;
@@ -108,9 +109,9 @@ export function applyEvent(g: Game, eventId: string, out: Outbox): void {
       const richest = sorted[0];
       const poorest = sorted[sorted.length - 1];
       if (richest && poorest && richest.id !== poorest.id && richest.coins > 0) {
-        const cut = Math.floor((richest.coins * effect.percent) / 100);
+        const cut = Math.max(1, Math.floor((richest.coins * effect.percent) / 100));
         richest.coins -= cut;
-        poorest.coins += cut;
+        earn(g, poorest, cut, false);
         announce(g, `🧓 ${richest.name} hereda... a la fuerza: le cede ${cut} 🪙 a ${poorest.name}.`, 'special');
         toast(out, richest.id, { text: `La herencia del casero: -${cut} 🪙`, tone: 'danger', sound: 'danger' });
         toast(out, poorest.id, { text: `Te ha tocado la herencia del casero · +${cut} 🪙`, tone: 'coins', sound: 'coins' });

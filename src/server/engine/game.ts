@@ -179,7 +179,8 @@ function flushLetters(g: Game, out: Outbox): void {
 function startRound(g: Game, index: number, out: Outbox): void {
   g.roundIndex = index;
   const plan = currentPlan(g)!;
-  g.flags = { multiplier: 1, shopSale: false, noShop: false, publicVote: false, ladenVote: false };
+  const ladenPending = g.flags.ladenVote; // el voto lastrado sobrevive hasta el próximo juicio
+  g.flags = { multiplier: 1, shopSale: false, noShop: false, publicVote: false, ladenVote: ladenPending };
   g.truceUntil = 0; // la sobremesa no cruza de ronda
   g.event = null;
   g.challenge = null;
@@ -307,6 +308,7 @@ function revealJudgment(g: Game): void {
   v.status = 'revealed';
   g.phaseEndsAt = null;
   g.suspects = v.suspects;
+  g.flags.ladenVote = false; // consumido por este juicio
   g.condemned = [...v.suspects]; // el Voto Lastrado los recuerda en el próximo juicio
   g.suspectRound = g.roundIndex;
   v.suspects.forEach((id) => getPlayer(g, id).stats.suspectRounds++);
@@ -692,7 +694,7 @@ function castVote(g: Game, p: PlayerState, targets: string[]): void {
   if (unique.some((id) => id === p.id || !activePlayers(g).some((x) => x.id === id))) throw new GameError('Voto no válido');
   v.ballots[p.id] = unique;
   if (v.kind === 'juicio') {
-    p.stats.votesCast++;
+    p.stats.votesCast = (p.stats.votesCast ?? 0) + 1; // ?? por snapshots anteriores a la stat
     // El condenado del juicio anterior vota con la rabia acumulada si cayó el evento
     if (g.flags.ladenVote && g.condemned.includes(p.id)) v.weights[p.id] = (v.weights[p.id] ?? 1) + 1;
     if (p.inventory.voto_doble > 0) {
@@ -937,7 +939,7 @@ export function leavePlayer(g: Game, p: PlayerState, out: Outbox): void {
     if (waiting && c.kind !== 'physical' && c.kind !== 'code_hunt' && pendingResponders(g, c).length === 0) finalizeChallenge(g, out);
   }
   if (g.phase === 'RITUAL' && g.ritual?.status === 'open' && g.ritual.participants.every((id) => g.ritual!.choices[id] || getPlayer(g, id).left)) revealRitual(g, out);
-  if (g.phase === 'VOTING' && g.vote?.status === 'open' && g.vote.voters.every((id) => g.vote!.ballots[id] || getPlayer(g, id).left)) revealJudgment(g);
+  if (g.phase === 'VOTING' && g.vote?.status === 'open' && g.vote.voters.every((id) => g.vote!.ballots[id] || getPlayer(g, id).left || roleOf(getPlayer(g, id))?.id === 'ermitano')) revealJudgment(g);
 }
 
 /** Un jugador que se fue puede volver con su token mientras la partida siga. */

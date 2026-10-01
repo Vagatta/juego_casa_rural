@@ -14,6 +14,15 @@ interface SnapshotBackend {
   loadAll(): Promise<Game[]>;
 }
 
+/** Defaults para campos añadidos tras crear el snapshot — partidas viejas no se rompen. */
+function migrate(g: Game): Game {
+  g.condemned ??= [];
+  g.truceUntil ??= 0;
+  g.flags.ladenVote ??= false;
+  for (const p of g.players) p.stats.votesCast ??= 0;
+  return g;
+}
+
 class FileBackend implements SnapshotBackend {
   constructor(private dir: string) {}
   async init() {
@@ -30,7 +39,7 @@ class FileBackend implements SnapshotBackend {
     const games: Game[] = [];
     for (const f of files) {
       try {
-        games.push(JSON.parse(await readFile(resolve(this.dir, f), 'utf8')) as Game);
+        games.push(migrate(JSON.parse(await readFile(resolve(this.dir, f), 'utf8')) as Game));
       } catch (err) {
         console.warn(`[store] snapshot ilegible ${f}:`, (err as Error).message);
       }
@@ -60,7 +69,7 @@ class PgBackend implements SnapshotBackend {
   }
   async loadAll() {
     const { rows } = await this.pool.query<{ state: Game }>(`SELECT state FROM game_snapshots WHERE updated_at > now() - interval '12 hours'`);
-    return rows.map((r) => r.state);
+    return rows.map((r) => migrate(r.state));
   }
 }
 
