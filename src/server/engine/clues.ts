@@ -117,12 +117,60 @@ function missionTargetClue(g: Game, recipient: PlayerState, want: 'true' | 'fals
   return { text: `Alguien tiene una misión sobre ti: ${listOr(g, ids)}.`, truth: want };
 }
 
+// ---- pistas de "estado de la casa": riqueza, compras, rachas, sospechas
+
+function coinsClue(g: Game, recipient: PlayerState, want: 'true' | 'false'): Draft | null {
+  const { others } = othersOf(g, recipient);
+  if (others.length < 3) return null;
+  const third = Math.max(1, Math.floor(others.length / 3));
+  const sorted = [...others].sort((a, b) => b.coins - a.coins);
+  // En 'false' se afirma rico a quien va de los últimos
+  const pool = want === 'true' ? sorted.slice(0, third) : sorted.slice(-third);
+  if (!pool.length) return null;
+  return { text: `${pick(pool).name} va de los que más monedas lleva esta noche.`, truth: want };
+}
+
+/** Afirmación sobre un stat real del jugador. En 'false' se elige a quien NO lo cumple. */
+function statClue(g: Game, recipient: PlayerState, want: 'true' | 'false', stat: keyof PlayerState['stats'], claim: string): Draft | null {
+  const { others } = othersOf(g, recipient);
+  const pool = others.filter((p) => (want === 'true' ? p.stats[stat] > 0 : p.stats[stat] === 0));
+  if (!pool.length) return null;
+  return { text: `${pick(pool).name} ${claim}.`, truth: want };
+}
+
+function streakClue(g: Game, recipient: PlayerState, want: 'true' | 'false'): Draft | null {
+  const { others } = othersOf(g, recipient);
+  const pool = others.filter((p) => (want === 'true' ? p.streak >= 3 : p.streak === 0));
+  if (!pool.length) return null;
+  const t = pick(pool);
+  return { text: want === 'true' ? `${t.name} lleva una racha de ${t.streak} misiones sin que le pillen.` : `${t.name} lleva una racha de misiones que ya no se puede frenar.`, truth: want };
+}
+
+function votedClue(g: Game, recipient: PlayerState, want: 'true' | 'false'): Draft | null {
+  const ballots = g.lastJudgment;
+  if (!ballots) return null;
+  const received = new Set(Object.values(ballots).flat());
+  const pool = activePlayers(g).filter((p) => (want === 'true' ? received.has(p.id) : !received.has(p.id)));
+  if (!pool.length) return null;
+  return { text: `${pick(pool).name} recibió al menos un voto en el último juicio.`, truth: want };
+}
+
+/** Ambiguas pero ciertas: datos de la casa que suenan a pista y no dicen nada. */
+function houseStatClue(g: Game): Draft | null {
+  const completed = g.missions.filter((m) => m.status === 'completed').length;
+  const options: Draft[] = [];
+  if (g.grietas > 0) options.push({ text: `Ya se han abierto ${g.grietas} ${g.grietas === 1 ? 'grieta' : 'grietas'} en el suelo de la casa.`, truth: 'ambiguous' });
+  if (completed > 0) options.push({ text: `Ya se han cumplido ${completed} ${completed === 1 ? 'misión secreta' : 'misiones secretas'} en esta casa.`, truth: 'ambiguous' });
+  if (g.roundIndex > 0) options.push({ text: `Lleváis ${g.roundIndex + 1} rondas dentro. La casa ya os conoce.`, truth: 'ambiguous' });
+  return options.length ? pick(options) : null;
+}
+
 // ------------------------------------------------------------- API
 
 export function randomClue(g: Game, recipient: PlayerState, truth: Truth): Draft {
   const generators: (() => Draft | null)[] =
     truth === 'ambiguous'
-      ? [() => trioClue(g, recipient, 'ambiguous')]
+      ? shuffle([() => trioClue(g, recipient, 'ambiguous'), () => houseStatClue(g), () => houseStatClue(g)])
       : shuffle([
           () => pairClue(g, recipient, truth),
           () => pairClue(g, recipient, truth),
@@ -132,6 +180,14 @@ export function randomClue(g: Game, recipient: PlayerState, truth: Truth): Draft
           () => waxClue(g, truth),
           () => voteClue(g, recipient, truth),
           () => missionTargetClue(g, recipient, truth),
+          () => coinsClue(g, recipient, truth),
+          () => statClue(g, recipient, truth, 'missionsBurned', 'ya ha sido pillado con las manos en la masa'),
+          () => statClue(g, recipient, truth, 'itemsBought', 'ya ha comprado algo en la Despensa'),
+          () => statClue(g, recipient, truth, 'abilityUses', 'ya ha usado su habilidad esta noche'),
+          () => statClue(g, recipient, truth, 'suspectRounds', 'ya ha estado bajo sospecha esta noche'),
+          () => statClue(g, recipient, truth, 'steals', 'ya ha metido la mano en un bolsillo ajeno'),
+          () => streakClue(g, recipient, truth),
+          () => votedClue(g, recipient, truth),
         ]);
   for (const gen of generators) {
     const draft = gen();
