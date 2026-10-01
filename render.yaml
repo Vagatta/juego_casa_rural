@@ -1,0 +1,7 @@
+# Blueprint de Render: "New > Blueprint" y apuntar a este repo lo deja desplegado.
+services:
+  - type: web
+    name: la-casa-rural
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
