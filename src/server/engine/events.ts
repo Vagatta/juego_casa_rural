@@ -3,7 +3,7 @@ import { gameContent, type EventDef } from '../content.ts';
 import { deliverClue, randomClue } from './clues.ts';
 import { assignMission } from './missions.ts';
 import { chance, pick, sample } from './rng.ts';
-import { type Game, type Outbox, activePlayers, announce, currentPlan, earn, isCuco, toast } from './state.ts';
+import { type Game, type Outbox, activePlayers, announce, currentPlan, earn, isCuco, nameOf, toast } from './state.ts';
 
 const EVENT_CHANCE = { clasico: 0.5, caos: 0.9, sofa: 0.45 } as const;
 
@@ -32,7 +32,7 @@ export function applyEvent(g: Game, eventId: string, out: Outbox): void {
   g.used.events.push(def.id);
   const now = Date.now();
   const effect = def.effect;
-  g.event = { id: def.id, endsAt: effect.type === 'rule' || effect.type === 'lightning' || effect.type === 'auction' ? now + effect.durationSec * 1000 : null };
+  g.event = { id: def.id, endsAt: effect.type === 'rule' || effect.type === 'lightning' || effect.type === 'auction' || effect.type === 'truce' ? now + effect.durationSec * 1000 : null };
   g.rounds[g.roundIndex]?.eventIds.push(def.id);
   const active = activePlayers(g);
   const byCoins = () => [...active].sort((a, b) => b.coins - a.coins);
@@ -88,6 +88,43 @@ export function applyEvent(g: Game, eventId: string, out: Outbox): void {
       break;
     case 'secret_intel':
       for (const p of sample(active, Math.min(active.length, effect.count ?? 1))) deliverClue(g, out, p, 'nota', randomClue(g, p, 'true'));
+      break;
+    case 'snitch': {
+      // El chivato: uno recibe una pista verdadera y OTRO sabe que él la recibió.
+      // Nadie tiene la información completa — paranoia garantizada.
+      const [recipient, witness] = sample(active, 2);
+      if (recipient) {
+        deliverClue(g, out, recipient, 'nota', randomClue(g, recipient, 'true'));
+        toast(out, recipient.id, { text: '🐀 El chivato de la casa te ha contado algo. Es verdad.', tone: 'special', private: true });
+      }
+      if (witness) {
+        deliverClue(g, out, witness, 'chisme', { text: `Viste al chivato de la casa susurrarle algo a ${recipient!.name}. Fuera lo que fuera, era verdad.`, truth: 'true' });
+      }
+      break;
+    }
+    case 'inheritance': {
+      // La herencia del casero: el más rico cede un porcentaje de su fortuna al más pobre
+      const sorted = byCoins();
+      const richest = sorted[0];
+      const poorest = sorted[sorted.length - 1];
+      if (richest && poorest && richest.id !== poorest.id && richest.coins > 0) {
+        const cut = Math.floor((richest.coins * effect.percent) / 100);
+        richest.coins -= cut;
+        poorest.coins += cut;
+        announce(g, `🧓 ${richest.name} hereda... a la fuerza: le cede ${cut} 🪙 a ${poorest.name}.`, 'special');
+        toast(out, richest.id, { text: `La herencia del casero: -${cut} 🪙`, tone: 'danger', sound: 'danger' });
+        toast(out, poorest.id, { text: `Te ha tocado la herencia del casero · +${cut} 🪙`, tone: 'coins', sound: 'coins' });
+      }
+      break;
+    }
+    case 'laden_vote':
+      // Voto lastrado: el condenado del juicio anterior vota con el peso de la rabia
+      g.flags.ladenVote = true;
+      if (g.condemned.length) announce(g, `⚖️ ${g.condemned.map((id) => nameOf(g, id)).join(' y ')} ${g.condemned.length === 1 ? 'vota' : 'votan'} con el peso de la rabia: su voto contará doble.`, 'special');
+      break;
+    case 'truce':
+      // La sobremesa: ni ¡PILLADO! ni doble o nada hasta que acabe la tregua
+      g.truceUntil = now + effect.durationSec * 1000;
       break;
     case 'cuco_mission':
       active.filter(isCuco).forEach((p) => assignMission(g, p, out, 'cuco'));

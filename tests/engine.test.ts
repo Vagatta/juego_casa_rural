@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { content, roleById } from '../src/server/content.ts';
 import { addPlayer, advance, createGame, hostAction, playerAction, startGame, tick } from '../src/server/engine/game.ts';
 import { pillar } from '../src/server/engine/missions.ts';
-import { dealCoupleMission, dealMissions, discardMission, assignSaboteurMission, resolveSaboteur, SUSPECT_TAG } from '../src/server/engine/missions.ts';
+import { dealCoupleMission, dealCorroMission, dealMissions, discardMission, assignSaboteurMission, resolveSaboteur, SUSPECT_TAG } from '../src/server/engine/missions.ts';
 import { applyEvent } from '../src/server/engine/events.ts';
 import { computeFinale } from '../src/server/engine/finale.ts';
 import { buildPlan, affectsCandles } from '../src/server/engine/plan.ts';
@@ -627,4 +627,139 @@ test('subasta ciega: pujas selladas, solo paga el ganador y nadie sabe quién', 
   assert.ok(pista && pista.truth === 'true', 'el ganador se lleva una pista cierta');
   const anuncio = g.announcements.find((a) => a.text.includes('sobre del casero') && a.text.includes('70'));
   assert.ok(anuncio && !anuncio.text.includes('Carlos'), 'el precio es público; el comprador, jamás');
+});
+
+test('herencia, chivato, voto lastrado y sobremesa', () => {
+  const settings: GameSettings = { durationMin: 60, difficulty: 'normal', mode: 'clasico', expectedPlayers: 6, hostPlays: true };
+  const g: Game = createGame('TESTC', settings);
+  const ps = ['Ana', 'Carlos', 'Diego', 'Laura', 'Marcos', 'Marta'].map((n) => addPlayer(g, n, '🐓'));
+  const [ana, carlos, diego] = ps;
+  for (const p of ps) p.roleId = 'vecino';
+  const out = newOutbox();
+  g.roundIndex = 2;
+  g.phase = 'INVESTIGATION';
+
+  // ---- La herencia: el más rico cede el 25% al más pobre
+  ana.coins = 200;
+  carlos.coins = 10;
+  diego.coins = 60;
+  applyEvent(g, 'e55', out);
+  assert.equal(ana.coins, 150, 'el más rico suelta el 25%');
+  assert.equal(carlos.coins, 60, 'el más pobre lo hereda');
+  assert.equal(diego.coins, 60, 'la clase media ni la tocan');
+  assert.ok(g.announcements.some((a) => a.text.includes('Ana') && a.text.includes('Carlos')), 'la herencia es pública');
+
+  // ---- El chivato: uno sabe la verdad, otro sabe quién la sabe
+  const cluesBefore = g.clues.length;
+  applyEvent(g, 'e56', out);
+  const nuevas = g.clues.slice(cluesBefore);
+  assert.equal(nuevas.length, 2, 'una pista al informado y otra al testigo');
+  assert.ok(nuevas.every((c) => c.truth === 'true'), 'el chivato no miente');
+  const testigo = nuevas.find((c) => c.source === 'chisme')!;
+  const informado = nuevas.find((c) => c.source === 'nota')!;
+  assert.match(testigo.text, /susurrarle algo a/, 'el testigo ve el susurro');
+  assert.ok(testigo.recipientId !== informado.recipientId, 'nadie sabe las dos mitades');
+
+  // ---- Voto lastrado: el condenado anterior vota doble
+  g.condemned = [ana.id]; // Ana quedó bajo sospecha en el juicio anterior
+  applyEvent(g, 'e57', out);
+  g.phase = 'VOTING';
+  g.vote = { kind: 'juicio', status: 'open', picks: 1, isPublic: false, voters: ps.map((p) => p.id), ballots: {}, weights: {}, tally: null, suspects: [], bets: {} };
+  playerAction(g, ana, { type: 'vote', targets: [carlos.id] }, out, true);
+  assert.equal(g.vote.weights[ana.id], 2, 'el condenado vota con rabia doble');
+  playerAction(g, carlos, { type: 'vote', targets: [diego.id] }, out, true);
+  assert.equal(g.vote.weights[carlos.id] ?? 1, 1, 'los demás votan normal');
+
+  // Sin evento: nadie pesa doble
+  g.flags.ladenVote = false;
+  g.vote = { kind: 'juicio', status: 'open', picks: 1, isPublic: false, voters: ps.map((p) => p.id), ballots: {}, weights: {}, tally: null, suspects: [], bets: {} };
+  playerAction(g, ana, { type: 'vote', targets: [carlos.id] }, out, true);
+  assert.equal(g.vote.weights[ana.id] ?? 1, 1, 'sin evento no hay lastre');
+
+  // ---- La sobremesa: ni ¡PILLADO! ni casino durante la tregua
+  g.phase = 'INVESTIGATION';
+  applyEvent(g, 'e58', out);
+  assert.ok(g.truceUntil > Date.now(), 'la tregua corre');
+  assert.throws(() => playerAction(g, ana, { type: 'pillar', targetId: carlos.id }, out, true), /sobremesa/i);
+  assert.throws(() => playerAction(g, ana, { type: 'coinflip', amount: 20 }, out, true), /sobremesa|casino/i);
+  g.truceUntil = 0; // la campana suena: se acabó la paz
+  playerAction(g, ana, { type: 'coinflip', amount: 10 }, out, true);
+  assert.ok([140, 160].includes(ana.coins), 'acabada la tregua el casino reabre');
+});
+
+test('padrino, casera y ermitaño: lazos, libros y silencio', () => {
+  const settings: GameSettings = { durationMin: 60, difficulty: 'normal', mode: 'clasico', expectedPlayers: 6, hostPlays: true };
+  const g: Game = createGame('TESTD', settings);
+  const ps = ['Ana', 'Carlos', 'Diego', 'Laura', 'Marcos', 'Marta'].map((n) => addPlayer(g, n, '🐓'));
+  const [ana, carlos, diego, laura, marcos] = ps;
+  ana.roleId = 'padrino';
+  carlos.roleId = 'cuco_falsificador';
+  diego.roleId = 'casera';
+  laura.roleId = 'ermitano';
+  marcos.roleId = 'vecino';
+  ps[5].roleId = 'curioso';
+  g.cucoCount = 1;
+  g.roundIndex = 1;
+  g.phase = 'INVESTIGATION';
+  const out = newOutbox();
+
+  // ---- El Padrino apadrina en secreto, una vez
+  assert.throws(() => playerAction(g, ana, { type: 'ability', targets: [ana.id] }, out, true), /ti mismo/i);
+  playerAction(g, ana, { type: 'ability', targets: [carlos.id] }, out, true); // apadrina al Cuco
+  assert.equal(ana.ahijadoId, carlos.id);
+  assert.throws(() => playerAction(g, ana, { type: 'ability', targets: [marcos.id] }, out, true), /gastado/i, 'una sola bendición por noche');
+
+  // ---- La Casera anota cada compra de la Despensa
+  marcos.coins = 100;
+  const antes = g.clues.filter((c) => c.recipientId === diego.id && c.source === 'chisme').length;
+  playerAction(g, marcos, { type: 'buy', item: 'candado' }, out, true);
+  const apunte = g.clues.filter((c) => c.recipientId === diego.id && c.source === 'chisme').at(-1);
+  assert.equal(g.clues.filter((c) => c.recipientId === diego.id && c.source === 'chisme').length, antes + 1);
+  assert.match(apunte!.text, /Marcos.*Candado/i, 'el libro dice quién y qué');
+  // La Casera no recibe apunte de sus propias compras
+  diego.coins = 100;
+  playerAction(g, diego, { type: 'buy', item: 'candado' }, out, true);
+  assert.ok(!g.clues.some((c) => c.recipientId === diego.id && c.text.includes('Diego pagó')), 'su propia compra no se anota');
+
+  // ---- El Ermitaño y su voto de silencio
+  g.phase = 'VOTING';
+  g.vote = { kind: 'juicio', status: 'open', picks: 1, isPublic: false, voters: ps.map((p) => p.id), ballots: {}, weights: {}, tally: null, suspects: [], bets: {} };
+  for (const p of ps) if (p.id !== laura.id) playerAction(g, p, { type: 'vote', targets: [p.id === marcos.id ? carlos.id : marcos.id] }, out, true);
+  assert.equal(g.vote.status, 'revealed', 'el juicio no espera al Ermitaño');
+  assert.equal(laura.stats.votesCast, 0, 'no ha votado');
+
+  // Si vota, pierde el voto de silencio
+  const f1 = computeFinale(g);
+  assert.equal(f1.ermitanoWon, laura.id, 'silencio cumplido: cobra');
+  laura.stats.votesCast = 1;
+  const f2 = computeFinale(g);
+  assert.equal(f2.ermitanoWon, null, 'un solo voto rompe el voto de silencio');
+  laura.stats.votesCast = 0;
+
+  // ---- El Padrino cobra si su ahijado es Cuco impune
+  g.vote = { kind: 'final', status: 'revealed', picks: 1, isPublic: false, voters: [], ballots: {}, weights: {}, tally: [], suspects: [], bets: {} };
+  const f3 = computeFinale(g);
+  assert.equal(f3.padrinoWon, ana.id, 'apadrinó al Cuco que nadie desenmascaró');
+  // Si el ahijado fuera desenmascarado, el Padrino se queda sin nada
+  g.vote.ballots = { [diego.id]: [carlos.id], [laura.id]: [carlos.id], [marcos.id]: [carlos.id] };
+  const f4 = computeFinale(g);
+  assert.equal(f4.padrinoWon, null, 'el ahijado desenmascarado no paga');
+});
+
+test('misión de corro: tres cómplices, misma tarea', () => {
+  const g: Game = createGame('TESTE', { durationMin: 60, difficulty: 'normal', mode: 'clasico', expectedPlayers: 8, hostPlays: true });
+  const ps = ['Ana', 'Carlos', 'Diego', 'Laura', 'Marcos', 'Marta', 'Pablo', 'Sara'].map((n) => addPlayer(g, n, '🐓'));
+  for (const p of ps) p.roleId = 'vecino';
+  const out = newOutbox();
+  g.roundIndex = 1;
+
+  dealCorroMission(g, out, true);
+  const corro = g.missions.filter((m) => m.missionId.startsWith('corro:'));
+  assert.equal(corro.length, 3, 'tres cómplices reciben la misión');
+  assert.equal(new Set(corro.map((m) => m.missionId)).size, 1, 'misma misión');
+  assert.ok(corro.every((m) => m.text === corro[0].text));
+  for (const m of corro) {
+    assert.equal(m.partners!.length, 2, 'cada uno conoce a sus dos cómplices');
+    assert.deepEqual(new Set([m.playerId, ...m.partners!]), new Set(corro.map((x) => x.playerId)), 'el corro se cierra entre los tres');
+  }
 });

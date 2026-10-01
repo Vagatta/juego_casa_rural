@@ -74,6 +74,9 @@ export const ROLE_ICON: Record<string, string> = {
   cuco_carterista: 'cuco_carterista',
   cuco_doble: 'cuco_doble',
   turista: 'turista',
+  padrino: 'padrino',
+  casera: 'casera',
+  ermitano: 'ermitano',
 };
 
 /** El emoji que el rol trae en el contenido → icono del set (fallback: cuco para
@@ -94,6 +97,8 @@ export const MEDAL_ICON: Record<string, string> = {
   buscavidas: 'buscavidas',
   pobre: 'patata',
   veterano: 'vela',
+  padrino: 'padrino',
+  ermitano: 'ermitano',
 };
 
 /** Premios de la ceremonia final (finale.ts `give(...)`), por id. */

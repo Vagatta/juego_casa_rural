@@ -111,6 +111,8 @@ export const FINAL_BONUS = {
   hiddenCuco: 80,
   turista: 250,
   buscavidas: 150,
+  padrino: 180,
+  ermitano: 120,
 };
 
 /** Misión relámpago: segundos para cumplirla antes de que se apague */
@@ -129,3 +131,7 @@ export const DROUGHT_BONUS = 15;
 
 /** Subasta ciega: puja mínima en el sobre del casero */
 export const AUCTION_MIN_BID = 10;
+
+/** Misión de corro (tres cómplices): probabilidad por ronda y recompensa por cabeza */
+export const CORRO_CHANCE = 0.3;
+export const CORRO_REWARD = 50;

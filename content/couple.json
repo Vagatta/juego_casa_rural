@@ -24,5 +24,10 @@
   { "id": "sospecha", "text": "Id por separado a {A} y contadle que sospecháis del otro (de vuestro cómplice). Doble engaño." },
   { "id": "robot", "text": "Intercambiaos una prenda o accesorio a la vista de todos sin explicar nada." },
   { "id": "aplauso", "text": "Los dos aplaudís a la vez cuando alguien diga «vela». Tres veces esta ronda." },
-  { "id": "camarote", "text": "Contad juntos, con gestos, una historia de 20 segundos sobre «el primer día que os visteis». Uno narra, otro actúa." }
+  { "id": "camarote", "text": "Contad juntos, con gestos, una historia de 20 segundos sobre «el primer día que os visteis». Uno narra, otro actúa." },
+  { "id": "corro_cosecha", "text": "Los tres: formad un corro junto a la ventana y hablad de «la cosecha de este año» durante 30 segundos. Si alguien ajeno pregunta qué hacéis, cambiad de tema sin reíros.", "trio": true },
+  { "id": "corro_ronda", "text": "Los tres: pasead por la casa en fila india, uno detrás de otro, sin explicar nada. Haced al menos una vuelta completa a la sala.", "trio": true },
+  { "id": "corro_brindis", "text": "Los tres: brindad a la vez diciendo «por la casa» exactamente al mismo tiempo. Si os desincronizáis, repetidlo hasta que suene limpio.", "trio": true },
+  { "id": "corro_silencio", "text": "Los tres: guardad silencio absoluto mirándoos durante 20 segundos en medio del salón. El primero que ría, paga una ronda de vergüenza.", "trio": true },
+  { "id": "corro_testigo", "text": "Los tres: conseguid que {A} se una a vuestro corro como si tal cosa. Cuando lo consigáis, los tres tenéis que suspirar al unísono.", "trio": true }
 ]

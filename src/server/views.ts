@@ -185,7 +185,11 @@ function missionsOf(g: Game, p: PlayerState): MissionView[] {
       reward: m.reward,
       status: m.status,
       suspect: m.tags.includes(SUSPECT_TAG) || undefined,
-      partner: m.partnerId ? (g.players.find((x) => x.id === m.partnerId)?.name ?? '???') : undefined,
+      partner: m.partnerId
+        ? (g.players.find((x) => x.id === m.partnerId)?.name ?? '???')
+        : m.partners?.length
+          ? m.partners.map((id) => g.players.find((x) => x.id === id)?.name ?? '???').join(' y ')
+          : undefined,
       saboteur: m.tags.includes(SABOTEUR_TAG) || undefined,
       custom: m.tags.includes('custom') || undefined,
       expiresAt: m.expiresAt,

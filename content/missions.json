@@ -168,5 +168,10 @@
   { "id": "m167", "difficulty": "epica", "category": "fisica", "faction": "any", "targets": 1, "tags": ["needs_judgment"], "text": "Haz una foto de {A} fingiendo ser el Cuco con un cuchillo de cocina de atrezo y consigue que alguien la vea sin contexto." },
   { "id": "m168", "difficulty": "facil", "category": "social", "faction": "any", "targets": 0, "tags": [], "text": "Pregunta en serio si «los Cucos cobran sueldo». Aguantad la conversación 30 segundos." },
   { "id": "m169", "difficulty": "media", "category": "social", "faction": "any", "targets": 1, "tags": [], "text": "Dile a {A} que te cae muy bien. Anota si le das cringe o le alegras la noche. Cuenta lo que sea." },
-  { "id": "m170", "difficulty": "facil", "category": "investigacion", "faction": "huesped", "targets": 0, "tags": [], "text": "Consigue que alguien te enseñe una pista suya a cambio de una información cualquiera." }
+  { "id": "m170", "difficulty": "facil", "category": "investigacion", "faction": "huesped", "targets": 0, "tags": [], "text": "Consigue que alguien te enseñe una pista suya a cambio de una información cualquiera." },
+  { "id": "m171", "difficulty": "media", "category": "social", "faction": "any", "targets": 1, "tags": [], "text": "Deja caer en una conversación una pista falsa sobre {A} («dicen que le han visto con cerillas…»). Que al menos dos personas la oigan." },
+  { "id": "m172", "difficulty": "media", "category": "social", "faction": "any", "targets": 0, "tags": [], "text": "Inventa un rumor («la casa guarda un sótano») y siémbralo dos veces esta ronda. Tiene que volverte de vuelta por otra boca." },
+  { "id": "m173", "difficulty": "dificil", "category": "social", "faction": "huesped", "targets": 1, "tags": [], "text": "Siembra una pista falsa tan buena que {A} la repita a otra persona como si fuera cierta. Sé el origen, nunca la fuente." },
+  { "id": "m174", "difficulty": "media", "category": "investigacion", "faction": "any", "targets": 1, "tags": [], "text": "Sé testigo invisible: sigue a {A} durante dos minutos sin que lo note y describe después qué hizo y con quién habló." },
+  { "id": "m175", "difficulty": "media", "category": "social", "faction": "any", "targets": 1, "tags": [], "text": "Convence a {A} de que «tienes información que no puedes soltar todavía». No sueltes nada real esta ronda." }
 ]

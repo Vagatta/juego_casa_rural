@@ -24,7 +24,7 @@ export function roleDistribution(n: number): string[] {
 
   const rest = n - roles.length;
   // La Abuela siempre está en mesas grandes; el resto de oficios sale al azar para variar
-  const specials = ['abuela', ...shuffle(['manitas', 'fotografa', 'chismoso', 'contable', 'insomne', 'notario', 'buscavidas'])];
+  const specials = ['abuela', ...shuffle(['manitas', 'fotografa', 'chismoso', 'contable', 'insomne', 'notario', 'buscavidas', 'padrino', 'casera', 'ermitano'])];
   for (let i = 0; i < rest; i++) roles.push(specials[i] ?? 'vecino');
   return roles;
 }

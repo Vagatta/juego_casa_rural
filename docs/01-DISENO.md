@@ -120,6 +120,22 @@ El sorteo de oficios es entre Manitas, Fotógrafa, Chismoso, Contable, Insomne y
 
 **El sobre del casero 🏷️** (evento): la casa subasta una pista que **siempre dice la verdad**. Pujas selladas desde el móvil (60 segundos, mínimo 10 🪙, puedes rectificar tu puja) — solo se ve cuánta gente ha pujado, nunca cuánto ni quién. Solo paga el ganador; el precio se anuncia en la tele pero el comprador queda en secreto.
 
+|**La herencia 🧾** (evento): el más rico de la casa cede una parte de su fortuna al más pobre. Redistribución bruta y anuncio público — el rico queda marcado y el pobre se hace peligroso de golpe.
+
+|**El chivato 🐀** (evento): la casa le cuenta una pista **verdadera** a un solo jugador al azar. A otro le llega el aviso de que a alguien le han chivado algo — dos informados, ninguno con la foto completa, paranoia servida.
+
+|**Voto lastrado ⚖️** (evento): quien quedó condenado en el juicio anterior vota **doble** en el siguiente. La casa lo anuncia; el último colgado vuelve con peso.
+
+|**La Sobremesa 🛋️** (evento): la casa manda a todos al sofá un rato — mientras dura la pausa no se puede lanzar ¡PILLADO! ni jugar al doble o nada. El respiro que necesita una noche de 90 minutos.
+
+|**El Padrino 🤵** (rol): al empezar apadrina a alguien en secreto. Si su ahijado es un Cuco y sale impune, el Padrino gana con él (+120 🪙). Un Cuco nunca sabe si tiene padrino.
+
+|**La Casera 📓** (rol pasivo): lleva el libro de cuentas — cada compra en la Despensa le llega como chisme privado ("X se ha gastado Y 🪙 en…"). Sabe quién se puede permitir qué antes que nadie.
+
+|**El Ermitaño 🏔️** (rol pasivo): gana +80 🪙 extra al final si no ha votado en **ningún** juicio — la casa no espera su voto para cerrar los juicios. Silencio rentable, pero cada vez que habla, pierde.
+
+|**El corro 🔗** (misiones de tres): la casa reparte la misma misión a tres cómplices a la vez — cada uno ve quiénes son los otros dos. Pacto grupal o pillada colectiva.
+
 ## 4. Pistas
 
 Las pistas se generan con **datos reales de la partida**:

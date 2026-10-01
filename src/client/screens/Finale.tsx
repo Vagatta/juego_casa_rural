@@ -176,6 +176,8 @@ function Step({ f, compact }: { f: FinaleView; compact?: boolean }) {
           </h1>
           {f.turistaWon && <p className="hand pop" style={{ fontSize: compact ? 28 : 48, animationDelay: '1800ms' }}>Y el Turista, {get(f.turistaWon)?.name}, se lleva el premio gordo <GIcon id="turista" size={compact ? 24 : 40} /></p>}
           {f.buscavidasWon && <p className="hand pop" style={{ fontSize: compact ? 28 : 48, animationDelay: '2000ms' }}>El Buscavidas, {get(f.buscavidasWon)?.name}, se marcha entre los tres más ricos <GIcon id="buscavidas" size={compact ? 24 : 40} /></p>}
+          {f.padrinoWon && <p className="hand pop" style={{ fontSize: compact ? 28 : 48, animationDelay: '2100ms' }}>El Padrino, {get(f.padrinoWon)?.name}, apadrinó al Cuco que salió impune <GIcon id="padrino" size={compact ? 24 : 40} /></p>}
+          {f.ermitanoWon && <p className="hand pop" style={{ fontSize: compact ? 28 : 48, animationDelay: '2200ms' }}>El Ermitaño, {get(f.ermitanoWon)?.name}, cumplió su voto de silencio <GIcon id="ermitano" size={compact ? 24 : 40} /></p>}
           {f.predictions.length > 0 && (
             <div className="slab stack pop" style={{ '--gap': '6px', animationDelay: '2000ms', maxWidth: 420 } as React.CSSProperties}>
               <strong className="display" style={{ fontSize: 24 }}><GIcon id="prediccion" size={20} /> Primeras impresiones</strong>

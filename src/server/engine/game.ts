@@ -74,8 +74,9 @@ export function createGame(code: string, settings: GameSettings): Game {
     phase: 'LOBBY', phaseEndsAt: null, pausedRemainingMs: null, pausedAt: null,
     players: [], roundIndex: -1, plan: [], rounds: [], velas: 0, grietas: 0, cucoCount: 0,
     challenge: null, ritual: null, vote: null, event: null,
-    flags: { multiplier: 1, shopSale: false, noShop: false, publicVote: false },
+    flags: { multiplier: 1, shopSale: false, noShop: false, publicVote: false, ladenVote: false },
     missions: [], clues: [], announcements: [], announceSeq: 0, suspects: [], suspectRound: -1, letters: [], lastJudgment: null, market: [],
+    condemned: [], truceUntil: 0,
     predictions: {},
     used: { challenges: [], events: [], missions: [], quiz: [], social: [], words: [] },
     auction: null, finale: null, finaleStep: 0, sealOpened: 0, rematchTo: null,
@@ -178,7 +179,8 @@ function flushLetters(g: Game, out: Outbox): void {
 function startRound(g: Game, index: number, out: Outbox): void {
   g.roundIndex = index;
   const plan = currentPlan(g)!;
-  g.flags = { multiplier: 1, shopSale: false, noShop: false, publicVote: false };
+  g.flags = { multiplier: 1, shopSale: false, noShop: false, publicVote: false, ladenVote: false };
+  g.truceUntil = 0; // la sobremesa no cruza de ronda
   g.event = null;
   g.challenge = null;
   g.ritual = null;
@@ -305,6 +307,7 @@ function revealJudgment(g: Game): void {
   v.status = 'revealed';
   g.phaseEndsAt = null;
   g.suspects = v.suspects;
+  g.condemned = [...v.suspects]; // el Voto Lastrado los recuerda en el próximo juicio
   g.suspectRound = g.roundIndex;
   v.suspects.forEach((id) => getPlayer(g, id).stats.suspectRounds++);
   g.lastJudgment = { ...v.ballots };
@@ -584,6 +587,7 @@ export function playerAction(g: Game, p: PlayerState, a: PlayerAction, out: Outb
       return discardMission(g, p, a.missionId);
     case 'pillar':
       if (g.roundIndex < 0 || g.phase === 'FINALE' || g.phase === 'FINAL_ACCUSATION') throw new GameError('Ahora no');
+      if (Date.now() < g.truceUntil) throw new GameError('La casa está de sobremesa: ni un ¡PILLADO! hasta que acabe');
       return pillar(g, p, getPlayer(g, a.targetId), out);
     case 'bet':
       return placeBet(g, p, a.targetId, a.amount, out);
@@ -646,6 +650,7 @@ export function playerAction(g: Game, p: PlayerState, a: PlayerAction, out: Outb
     case 'coinflip': {
       // Doble o nada: una jugada por ronda, la moneda cae delante de toda la casa
       assertPhase(g, 'INVESTIGATION');
+      if (Date.now() < g.truceUntil) throw new GameError('La casa está de sobremesa: el casino está cerrado');
       if (p.coinflipRound === g.roundIndex) throw new GameError('Ya te la has jugado esta ronda');
       const amount = Math.trunc(a.amount);
       if (amount < 10) throw new GameError('La apuesta mínima son 10 🪙');
@@ -686,11 +691,17 @@ function castVote(g: Game, p: PlayerState, targets: string[]): void {
   if (unique.length < 1 || unique.length > v.picks) throw new GameError(v.picks === 1 ? 'Elige a una persona' : `Elige hasta ${v.picks} personas`);
   if (unique.some((id) => id === p.id || !activePlayers(g).some((x) => x.id === id))) throw new GameError('Voto no válido');
   v.ballots[p.id] = unique;
-  if (v.kind === 'juicio' && p.inventory.voto_doble > 0) {
-    p.inventory.voto_doble--;
-    v.weights[p.id] = 2;
+  if (v.kind === 'juicio') {
+    p.stats.votesCast++;
+    // El condenado del juicio anterior vota con la rabia acumulada si cayó el evento
+    if (g.flags.ladenVote && g.condemned.includes(p.id)) v.weights[p.id] = (v.weights[p.id] ?? 1) + 1;
+    if (p.inventory.voto_doble > 0) {
+      p.inventory.voto_doble--;
+      v.weights[p.id] = (v.weights[p.id] ?? 1) + 1;
+    }
+    // El Ermitaño guarda silencio: el juicio no le espera si él no vota
+    if (v.voters.every((id) => v.ballots[id] || getPlayer(g, id).left || roleOf(getPlayer(g, id))?.id === 'ermitano')) revealJudgment(g);
   }
-  if (v.kind === 'juicio' && v.voters.every((id) => v.ballots[id] || getPlayer(g, id).left)) revealJudgment(g);
 }
 
 /** Casino de la Gran Acusación: monedas sobre quién es Cuco. Público — el cachondeo es la gracia. */
@@ -825,6 +836,11 @@ function buy(g: Game, p: PlayerState, a: Extract<PlayerAction, { type: 'buy' }>,
     }
   }
   p.stats.itemsBought++;
+  // La Casera anota cada compra en su libro: quién fue y qué se llevó
+  for (const c of activePlayers(g).filter((o) => o.roleId === 'casera' && o.id !== p.id)) {
+    const itemName = SHOP_ITEMS.find((i) => i.id === a.item)?.name ?? a.item;
+    deliverClue(g, out, c, 'chisme', { text: `Libro de cuentas: ${p.name} pagó ${price} 🪙 por «${itemName}».`, truth: 'true' });
+  }
 }
 
 function useAbility(g: Game, p: PlayerState, targetIds: string[], out: Outbox): void {
@@ -871,6 +887,13 @@ function useAbility(g: Game, p: PlayerState, targetIds: string[], out: Outbox): 
       break;
     case 'notario':
       throw new GameError('El sello se estampa sobre una nota concreta: búscala en tus Pistas');
+    case 'apadrinar': {
+      const godchild = targets[0];
+      if (godchild.id === p.id) throw new GameError('No puedes apadrinarte a ti mismo');
+      p.ahijadoId = godchild.id;
+      toast(out, p.id, { text: `👑 Has apadrinado a ${godchild.name}. Si es Cuco y sale impune, ganas con él.`, tone: 'special', private: true });
+      break;
+    }
   }
   if (p.ability.roundIndex !== g.roundIndex) p.ability = { ...p.ability, roundIndex: g.roundIndex, inRound: 0 };
   p.ability.inRound++;

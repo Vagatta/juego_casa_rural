@@ -18,7 +18,7 @@ const roleSchema = z.object({
   objective: z.string(),
   ability: z
     .object({
-      id: z.enum(['investigar', 'receta', 'reparar', 'revelado', 'falsificar', 'mano_larga', 'notario']),
+      id: z.enum(['investigar', 'receta', 'reparar', 'revelado', 'falsificar', 'mano_larga', 'notario', 'apadrinar']),
       name: z.string(),
       text: z.string(),
       targets: z.union([z.literal(0), z.literal(1), z.literal(2)]),
@@ -70,6 +70,10 @@ const eventEffectSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('lightning'), durationSec: z.number().int().positive() }),
   z.object({ type: z.literal('auction'), durationSec: z.number().int().positive() }),
   z.object({ type: z.literal('secret_intel'), count: z.number().int().positive().optional() }),
+  z.object({ type: z.literal('snitch') }),
+  z.object({ type: z.literal('inheritance'), percent: z.number().positive().max(100) }),
+  z.object({ type: z.literal('laden_vote') }),
+  z.object({ type: z.literal('truce'), durationSec: z.number().int().positive() }),
   z.object({ type: z.literal('cuco_mission') }),
   z.object({ type: z.literal('extra_cerilla') }),
   z.object({ type: z.literal('public_vote') }),
@@ -78,6 +82,8 @@ const eventEffectSchema = z.discriminatedUnion('type', [
 const suspectSchema = z.object({
   id: z.string(),
   text: z.string(),
+  /** Misiones de corro: 3 cómplices en lugar de 2 (solo en couple.json) */
+  trio: z.boolean().optional(),
 });
 
 const eventSchema = z.object({

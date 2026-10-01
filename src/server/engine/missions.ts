@@ -1,4 +1,6 @@
 import {
+  CORRO_CHANCE,
+  CORRO_REWARD,
   COUPLE_CHANCE,
   COUPLE_REWARD,
   MISSION_REWARD,
@@ -173,8 +175,8 @@ export const COUPLE_TAG = 'pareja';
 export function dealCoupleMission(g: Game, out: Outbox, force = false): void {
   const active = activePlayers(g);
   if (active.length < 4 || (!force && !chance(COUPLE_CHANCE))) return;
-  const pool = gameContent(g).couple.filter((d) => !g.missions.some((m) => m.missionId === `couple:${d.id}`));
-  const def = pick(pool.length ? pool : gameContent(g).couple);
+  const pool = gameContent(g).couple.filter((d) => !d.trio && !g.missions.some((m) => m.missionId === `couple:${d.id}`));
+  const def = pick(pool.length ? pool : gameContent(g).couple.filter((d) => !d.trio));
   if (!def) return; // sin misiones en pareja disponibles (todas usadas o desactivadas)
   const [a, b] = shuffle(active);
   // Los {A}/{B} del texto son terceros, no la pareja
@@ -197,6 +199,40 @@ export function dealCoupleMission(g: Game, out: Outbox, force = false): void {
       partnerId: p.id === a.id ? b.id : a.id,
     });
     toast(out, p.id, { text: `🤝 Misión en pareja con ${p.id === a.id ? b.name : a.name}`, tone: 'special', private: true, sound: 'mission' });
+  }
+}
+
+// Misiones de corro: TRES jugadores reciben la misma tarea y conocen a sus dos
+// cómplices. Cuantos más cómplices, más difícil pasar desapercibidos.
+export const CORRO_TAG = 'corro';
+
+export function dealCorroMission(g: Game, out: Outbox, force = false): void {
+  const active = activePlayers(g);
+  if (active.length < 6 || (!force && !chance(CORRO_CHANCE))) return;
+  const pool = gameContent(g).couple.filter((d) => d.trio && !g.missions.some((m) => m.missionId === `corro:${d.id}`));
+  const def = pick(pool.length ? pool : gameContent(g).couple.filter((d) => d.trio));
+  if (!def) return;
+  const trio = shuffle(active).slice(0, 3);
+  const others = shuffle(active.filter((p) => !trio.some((t) => t.id === p.id)));
+  const targets = others.slice(0, new Set(def.text.match(/\{[AB]\}/g) ?? []).size).map((p) => p.id);
+  for (const p of trio) {
+    g.missions.push({
+      id: shortId(),
+      missionId: `corro:${def.id}`,
+      playerId: p.id,
+      text: resolveText(g, def, targets),
+      difficulty: 'media',
+      category: 'social',
+      reward: CORRO_REWARD,
+      targets,
+      tags: [CORRO_TAG],
+      status: 'active',
+      assignedRound: g.roundIndex,
+      resolvedAt: null,
+      partners: trio.filter((o) => o.id !== p.id).map((o) => o.id),
+    });
+    const names = trio.filter((o) => o.id !== p.id).map((o) => o.name).join(' y ');
+    toast(out, p.id, { text: `⭕ Misión de corro con ${names}`, tone: 'special', private: true, sound: 'mission' });
   }
 }
 
@@ -263,6 +299,7 @@ export function dealMissions(g: Game, out: Outbox): void {
     }
   }
   dealCoupleMission(g, out);
+  dealCorroMission(g, out);
 }
 
 function ownActiveMission(g: Game, p: PlayerState, missionId: string): MissionState {

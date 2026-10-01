@@ -137,6 +137,46 @@
     }
   },
   {
+    "id": "padrino",
+    "name": "El Padrino",
+    "emoji": "👑",
+    "faction": "huesped",
+    "summary": "Aquí todos te deben algo. O eso crees tú.",
+    "objective": "Encended velas y desenmascarad a los Cucos en la Gran Acusación.",
+    "ability": {
+      "id": "apadrinar",
+      "name": "Apadrinar",
+      "text": "Una vez por partida: eliges en secreto a tu ahijado. Si resulta ser un Cuco y sale impune (sin desenmascarar), ganas 180 monedas con él.",
+      "targets": 1,
+      "targetLabels": ["¿A quién apadrinas?"],
+      "perGame": 1
+    }
+  },
+  {
+    "id": "casera",
+    "name": "La Casera",
+    "emoji": "📒",
+    "faction": "huesped",
+    "summary": "Llevas el libro de cuentas de la casa. Nada se mueve sin que lo anotes.",
+    "objective": "Encended velas y desenmascarad a los Cucos en la Gran Acusación.",
+    "passive": {
+      "name": "Libro de cuentas",
+      "text": "Te llega un apunte cada vez que alguien compra en la Despensa: quién fue y qué se llevó."
+    }
+  },
+  {
+    "id": "ermitano",
+    "name": "El Ermitaño",
+    "emoji": "🕯️",
+    "faction": "huesped",
+    "summary": "Vives apartado del ruido. Tu voto de silencio vale oro.",
+    "objective": "Encended velas y desenmascarad a los Cucos en la Gran Acusación.",
+    "passive": {
+      "name": "Voto de silencio",
+      "text": "Si llegas al final sin votar en ningún juicio, la casa te premia con 120 monedas. Si votas una sola vez, lo pierdes."
+    }
+  },
+  {
     "id": "cuco_falsificador",
     "name": "Cuco Falsificador",
     "emoji": "🐦",

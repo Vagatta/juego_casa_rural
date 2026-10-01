@@ -20,6 +20,8 @@ export const MEDALS: MedalDef[] = [
   { id: 'buscavidas', emoji: '🎩', name: 'Buscavidas', desc: 'Acabar entre los tres más ricos jugando a tu aire.' },
   { id: 'pobre', emoji: '🥔', name: 'Pobre pero honrado', desc: 'Terminar último en el podio. Alguien tiene que serlo.' },
   { id: 'veterano', emoji: '🕯️', name: 'Veterano', desc: 'Jugar 3 noches en esta casa.' },
+  { id: 'padrino', emoji: '👑', name: 'El Padrino', desc: 'Apadrinar al Cuco que salió impune.' },
+  { id: 'ermitano', emoji: '🕯️', name: 'Voto de silencio', desc: 'Llegar al final sin votar en ningún juicio.' },
 ];
 
 const KEY = 'casa-rural:medals';
@@ -51,6 +53,8 @@ export function medalsEarned(view: GameView): MedalDef[] {
   if (f.bets.some((b) => b.playerId === me.id && b.won)) earned.push(MEDALS.find((m) => m.id === 'casino')!);
   if (f.predictions.some((x) => x.playerId === me.id && x.hit)) earned.push(MEDALS.find((m) => m.id === 'vidente')!);
   if (f.buscavidasWon === me.id) earned.push(MEDALS.find((m) => m.id === 'buscavidas')!);
+  if (f.padrinoWon === me.id) earned.push(MEDALS.find((m) => m.id === 'padrino')!);
+  if (f.ermitanoWon === me.id) earned.push(MEDALS.find((m) => m.id === 'ermitano')!);
   return earned;
 }
 

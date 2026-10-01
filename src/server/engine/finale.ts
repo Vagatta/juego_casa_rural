@@ -54,6 +54,18 @@ export function computeFinale(g: Game): Omit<FinaleView, 'step' | 'roles'> {
     busca && [...everyone].sort((a, b) => b.coins - a.coins).slice(0, 3).some((p) => p.id === busca.id) ? busca.id : null;
   if (buscavidasWon) add(buscavidasWon, FINAL_BONUS.buscavidas);
 
+  // El Padrino apadrinó a alguien en secreto: si su ahijado era un Cuco que salió
+  // impune, la familia cobra — él gana aunque la casa se haya salvado.
+  const padrino = everyone.find((p) => p.roleId === 'padrino');
+  const padrinoWon =
+    padrino?.ahijadoId && cucos.some((c) => c.id === padrino.ahijadoId && !unmasked.includes(c.id)) ? padrino.id : null;
+  if (padrinoWon) add(padrinoWon, FINAL_BONUS.padrino);
+
+  // El Ermitaño cumplió su voto de silencio si no votó en ningún juicio
+  const ermitano = everyone.find((p) => p.roleId === 'ermitano');
+  const ermitanoWon = ermitano && (ermitano.stats.votesCast ?? 0) === 0 ? ermitano.id : null;
+  if (ermitanoWon) add(ermitanoWon, FINAL_BONUS.ermitano);
+
   // ---- apuestas de la Gran Acusación: acertar paga el doble de lo apostado
   const bets = Object.entries(vote?.bets ?? {}).map(([playerId, bet]) => {
     const p = everyone.find((x) => x.id === playerId);
@@ -129,13 +141,15 @@ export function computeFinale(g: Game): Omit<FinaleView, 'step' | 'roles'> {
     balance: { huespedes, cucos: cucoScore, winner },
     turistaWon,
     buscavidasWon,
+    padrinoWon,
+    ermitanoWon,
     missionHighlights,
     falseClues,
     awards,
     ranking,
     bets,
     predictions,
-    chronicle: chronicle(g, winner, { huespedes, cucos: cucoScore }, ranking, predictions, buscavidasWon),
+    chronicle: chronicle(g, winner, { huespedes, cucos: cucoScore }, ranking, predictions, buscavidasWon, padrinoWon, ermitanoWon),
     funStats: funStats(g, everyone),
     sealOpenedTimes: g.sealOpened,
   };
@@ -150,6 +164,8 @@ function chronicle(
   ranking: { playerId: string; total: number }[],
   predictions: { playerId: string; targetId: string; hit: boolean }[],
   buscavidasWon: string | null,
+  padrinoWon: string | null,
+  ermitanoWon: string | null,
 ): string[] {
   const lines: string[] = [];
   const names = (ids: string[]) => ids.map((id) => nameOf(g, id)).join(' y ');
@@ -188,6 +204,8 @@ function chronicle(
 
   lines.push(`La balanza quedó ${balance.huespedes} a ${balance.cucos}: ${winner === 'huespedes' ? 'la casa se salvó' : 'la casa quedó en manos de los Cucos'}.`);
   if (buscavidasWon) lines.push(`Y ${nameOf(g, buscavidasWon)}, el Buscavidas, se marchó entre los tres más ricos. Ganó sin deberle nada a nadie.`);
+  if (padrinoWon) lines.push(`${nameOf(g, padrinoWon)}, el Padrino, apadrinó al Cuco correcto. La familia siempre cobra.`);
+  if (ermitanoWon) lines.push(`${nameOf(g, ermitanoWon)}, el Ermitaño, cumplió su voto de silencio hasta el final. La casa le paga la paz.`);
   if (ranking[0]) lines.push(`${nameOf(g, ranking[0].playerId)} se marchó con ${ranking[0].total} monedas y la frente muy alta.`);
   return lines;
 }

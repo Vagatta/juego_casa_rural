@@ -7,7 +7,7 @@ export type Mode = 'clasico' | 'caos' | 'sofa';
 export type MissionDifficulty = 'facil' | 'media' | 'dificil' | 'epica';
 export type ChallengeKind = 'physical' | 'quiz' | 'code_hunt' | 'word_impostor' | 'truth_lie' | 'social_vote' | 'interrogatorio';
 export type ChallengeCategory = 'mental' | 'social' | 'fisica' | 'movil' | 'mentira';
-export type AbilityId = 'investigar' | 'receta' | 'reparar' | 'revelado' | 'falsificar' | 'mano_larga' | 'notario';
+export type AbilityId = 'investigar' | 'receta' | 'reparar' | 'revelado' | 'falsificar' | 'mano_larga' | 'notario' | 'apadrinar';
 export type ShopItemId = 'pista' | 'candado' | 'voto_doble' | 'ganzua' | 'mirilla' | 'sobre' | 'coartada' | 'altavoz' | 'espejo' | 'nota';
 
 export type Phase =
@@ -253,6 +253,10 @@ export interface FinaleView {
   turistaWon: string | null;
   /** El Buscavidas gana si acaba entre los 3 más ricos (conteo antes de bonos) */
   buscavidasWon: string | null;
+  /** El Padrino gana si su ahijado resultó ser un Cuco que salió impune */
+  padrinoWon: string | null;
+  /** El Ermitaño cobra su voto de silencio si no votó en ningún juicio */
+  ermitanoWon: string | null;
   missionHighlights: { playerId: string; text: string; difficulty: MissionDifficulty }[];
   falseClues: { recipientId: string; text: string; forgedBy: string | null }[];
   awards: Award[];

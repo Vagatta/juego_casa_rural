@@ -40,6 +40,8 @@ export interface PlayerStats {
   speakerTurns: number;
   betsWon: number;
   betProfit: number;
+  /** Votos emitidos en juicios (el Ermitaño pierde su voto de silencio si vota) */
+  votesCast: number;
 }
 
 export const emptyStats = (): PlayerStats => ({
@@ -47,7 +49,7 @@ export const emptyStats = (): PlayerStats => ({
   correctVotes: 0, cluesReceived: 0, coinsEarned: 0, coinsSpent: 0, steals: 0, stolenFrom: 0,
   apagones: 0, bluffApagar: 0, forges: 0, abilityUses: 0, challengesPlayed: 0, challengesPassed: 0,
   challengeWins: 0, suspectRounds: 0, itemsBought: 0, coinsGifted: 0, quizCorrect: 0, duels: 0,
-  speakerTurns: 0, betsWon: 0, betProfit: 0,
+  speakerTurns: 0, betsWon: 0, betProfit: 0, votesCast: 0,
 });
 
 export interface PlayerState {
@@ -77,6 +79,8 @@ export interface PlayerState {
   notes: string;
   /** Antispam de reacciones a la TV */
   lastReactAt: number;
+  /** El Padrino: a quién apadrinó en secreto (una vez por partida) */
+  ahijadoId?: string;
   stats: PlayerStats;
 }
 
@@ -95,6 +99,8 @@ export interface MissionState {
   resolvedAt: number | null;
   /** Misión en pareja: id del cómplice que la comparte */
   partnerId?: string;
+  /** Misión de corro: ids de los otros cómplices (dos) */
+  partners?: string[];
   /** Misión relámpago: caduca a esta hora (ms epoch) */
   expiresAt?: number;
 }
@@ -201,7 +207,7 @@ export interface Game {
   ritual: RitualState | null;
   vote: VoteState | null;
   event: { id: string; endsAt: number | null } | null;
-  flags: { multiplier: number; shopSale: boolean; noShop: boolean; publicVote: boolean };
+  flags: { multiplier: number; shopSale: boolean; noShop: boolean; publicVote: boolean; ladenVote: boolean };
   missions: MissionState[];
   clues: ClueState[];
   announcements: Announcement[];
@@ -220,8 +226,12 @@ export interface Game {
   finale: Omit<FinaleView, 'step' | 'roles'> | null;
   finaleStep: number;
   sealOpened: number;
+  /** El condenado del juicio más reciente: el Voto Lastrado le da peso doble */
+  condemned: string[];
   /** Subasta ciega del evento: pujas selladas hasta endsAt; solo paga el ganador */
   auction: { endsAt: number; bids: Record<string, { amount: number; at: number }> } | null;
+  /** La Sobremesa: hasta esta hora no hay ¡PILLADO! ni doble o nada (ms epoch) */
+  truceUntil: number;
   /** Código de la casa nueva si el director abrió otra noche al terminar */
   rematchTo: string | null;
 }
