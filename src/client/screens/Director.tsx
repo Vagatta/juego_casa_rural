@@ -1,4 +1,4 @@
-import { ArrowsOut, SidebarSimple } from '@phosphor-icons/react';
+import { ArrowsIn, ArrowsOut, SidebarSimple } from '@phosphor-icons/react';
 import QRCode from 'qrcode';
 import { useEffect, useMemo, useState } from 'react';
 import { Toasts } from '../components/cards.tsx';
@@ -52,6 +52,12 @@ export function DirectorScreen({ code }: { code: string }) {
 function DirectorApp() {
   const { view } = useGame();
   const [panel, setPanel] = useState(true);
+  const [fullscreen, setFullscreen] = useState(!!document.fullscreenElement);
+  useEffect(() => {
+    const onChange = () => setFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
   return (
     <main className={`director ${panel ? '' : 'director--tv'}`}>
       <div className="director__stage">
@@ -60,8 +66,14 @@ function DirectorApp() {
           <span className="chip">Casa {view.code}</span>
           <span className="grow" />
           <Candles velas={view.velas} grietas={view.grietas} slots={view.candleSlots} compact />
-          <button type="button" className="icon-btn" onClick={() => document.documentElement.requestFullscreen?.().catch(() => {})} aria-label="Pantalla completa">
-            <ArrowsOut size={20} weight="light" />
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => {})}
+            aria-label={fullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+            aria-pressed={fullscreen}
+          >
+            {fullscreen ? <ArrowsIn size={20} weight="light" /> : <ArrowsOut size={20} weight="light" />}
           </button>
           <button type="button" className="icon-btn" onClick={() => setPanel(!panel)} aria-label={panel ? 'Modo TV: ocultar controles' : 'Mostrar controles'} aria-pressed={!panel}>
             <SidebarSimple size={20} weight="light" />
