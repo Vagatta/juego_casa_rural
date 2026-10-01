@@ -665,16 +665,38 @@ test('herencia, chivato, voto lastrado y sobremesa', () => {
   applyEvent(g, 'e57', out);
   g.phase = 'VOTING';
   g.vote = { kind: 'juicio', status: 'open', picks: 1, isPublic: false, voters: ps.map((p) => p.id), ballots: {}, weights: {}, tally: null, suspects: [], bets: {} };
-  playerAction(g, ana, { type: 'vote', targets: [carlos.id] }, out, true);
+  for (const p of ps) playerAction(g, p, { type: 'vote', targets: [p.id === ana.id ? carlos.id : p.id === diego.id ? carlos.id : diego.id] }, out, true);
+  assert.equal(g.vote.status, 'revealed', 'el juicio se cierra solo');
   assert.equal(g.vote.weights[ana.id], 2, 'el condenado vota con rabia doble');
-  playerAction(g, carlos, { type: 'vote', targets: [diego.id] }, out, true);
   assert.equal(g.vote.weights[carlos.id] ?? 1, 1, 'los demás votan normal');
+  const carlosTally = g.vote.tally!.find((t) => t.id === carlos.id)!;
+  assert.equal(carlosTally.votes, 3, 'el lastre pesa en el recuento (Ana×2 + Diego)');
 
   // Sin evento: nadie pesa doble
   g.flags.ladenVote = false;
   g.vote = { kind: 'juicio', status: 'open', picks: 1, isPublic: false, voters: ps.map((p) => p.id), ballots: {}, weights: {}, tally: null, suspects: [], bets: {} };
   playerAction(g, ana, { type: 'vote', targets: [carlos.id] }, out, true);
   assert.equal(g.vote.weights[ana.id] ?? 1, 1, 'sin evento no hay lastre');
+
+  // ---- El lastre se aplica al contar, no al emitir: el evento puede caer a mitad de votación
+  g.condemned = [ana.id];
+  g.flags.ladenVote = false;
+  g.vote = { kind: 'juicio', status: 'open', picks: 1, isPublic: false, voters: ps.map((p) => p.id), ballots: {}, weights: {}, tally: null, suspects: [], bets: {} };
+  playerAction(g, ana, { type: 'vote', targets: [diego.id] }, out, true); // vota ANTES del evento
+  applyEvent(g, 'e57', out); // el director lanza el evento con la urna abierta
+  for (const p of ps) if (p.id !== ana.id) playerAction(g, p, { type: 'vote', targets: [p.id === diego.id ? carlos.id : diego.id] }, out, true);
+  assert.equal(g.vote.status, 'revealed');
+  assert.equal(g.vote.weights[ana.id], 2, 'el lastre alcanza al voto ya emitido');
+  assert.equal(g.flags.ladenVote, false, 'el lastre se consume al cerrar el juicio');
+
+  // ---- Lastrado + voto_doble se apilan a ×3
+  g.condemned = [ana.id];
+  ana.inventory.voto_doble = 1;
+  applyEvent(g, 'e57', out);
+  g.vote = { kind: 'juicio', status: 'open', picks: 1, isPublic: false, voters: ps.map((p) => p.id), ballots: {}, weights: {}, tally: null, suspects: [], bets: {} };
+  for (const p of ps) playerAction(g, p, { type: 'vote', targets: [p.id === ana.id || p.id === diego.id ? carlos.id : diego.id] }, out, true);
+  assert.equal(g.vote.weights[ana.id], 3, 'lastrado + voto doble = triple peso');
+  ana.inventory.voto_doble = 0;
 
   // ---- La sobremesa: ni ¡PILLADO! ni casino durante la tregua
   g.phase = 'INVESTIGATION';
@@ -721,6 +743,15 @@ test('padrino, casera y ermitaño: lazos, libros y silencio', () => {
   playerAction(g, diego, { type: 'buy', item: 'candado' }, out, true);
   assert.ok(!g.clues.some((c) => c.recipientId === diego.id && c.text.includes('Diego pagó')), 'su propia compra no se anota');
 
+  // ---- El Padrino no puede esperar a saber quién es el Cuco
+  ana.roleId = 'padrino';
+  ana.ability = { roundIndex: 0, inRound: 0, total: 0 };
+  ana.ahijadoId = undefined;
+  g.roundIndex = 3;
+  assert.throws(() => playerAction(g, ana, { type: 'ability', targets: [marcos.id] }, out, true), /primeras rondas/i, 'apadrinar tarde sería hacer trampa');
+  g.roundIndex = 1;
+  playerAction(g, ana, { type: 'ability', targets: [carlos.id] }, out, true);
+
   // ---- El Ermitaño y su voto de silencio
   g.phase = 'VOTING';
   g.vote = { kind: 'juicio', status: 'open', picks: 1, isPublic: false, voters: ps.map((p) => p.id), ballots: {}, weights: {}, tally: null, suspects: [], bets: {} };
@@ -744,6 +775,17 @@ test('padrino, casera y ermitaño: lazos, libros y silencio', () => {
   g.vote.ballots = { [diego.id]: [carlos.id], [laura.id]: [carlos.id], [marcos.id]: [carlos.id] };
   const f4 = computeFinale(g);
   assert.equal(f4.padrinoWon, null, 'el ahijado desenmascarado no paga');
+
+  // ---- Abandonar no es salir impune ni guardar silencio
+  g.vote.ballots = {};
+  carlos.left = true;
+  const f5 = computeFinale(g);
+  assert.equal(f5.padrinoWon, null, 'un ahijado que abandonó no es un Cuco impune');
+  carlos.left = false;
+  laura.left = true; // la Ermitaña se fue sin votar
+  const f6 = computeFinale(g);
+  assert.equal(f6.ermitanoWon, null, 'irse de la casa no cuenta como silencio');
+  laura.left = false;
 });
 
 test('misión de corro: tres cómplices, misma tarea', () => {

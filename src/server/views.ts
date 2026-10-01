@@ -325,10 +325,10 @@ export function buildView(g: Game, viewer: Viewer): GameView {
           total: g.vote.voters.length,
           myVote: me && g.vote.ballots[me.id] ? [...g.vote.ballots[me.id]] : null,
           myWeight: me
-            ? (g.vote.weights[me.id] ??
-              (g.vote.kind === 'juicio'
-                ? 1 + (me.inventory.voto_doble > 0 ? 1 : 0) + (g.flags.ladenVote && g.condemned.includes(me.id) ? 1 : 0)
-                : 1))
+            ? g.vote.kind === 'juicio'
+              ? (g.vote.weights[me.id] ?? 1 + (me.inventory.voto_doble > 0 ? 1 : 0)) +
+                (g.flags.ladenVote && g.condemned.includes(me.id) ? 1 : 0)
+              : 1
             : 1,
           bets: Object.entries(g.vote.bets).map(([playerId, b]) => ({ playerId, targetId: b.targetId, amount: b.amount })),
           myBet: me && g.vote.bets[me.id] ? { ...g.vote.bets[me.id] } : null,

@@ -146,7 +146,7 @@
     "ability": {
       "id": "apadrinar",
       "name": "Apadrinar",
-      "text": "Una vez por partida: eliges en secreto a tu ahijado. Si resulta ser un Cuco y sale impune (sin desenmascarar), ganas 180 monedas con él.",
+      "text": "En las dos primeras rondas eliges en secreto a tu ahijado. Si resulta ser un Cuco y sale impune (sin desenmascarar), ganas 180 monedas con él.",
       "targets": 1,
       "targetLabels": ["¿A quién apadrinas?"],
       "perGame": 1

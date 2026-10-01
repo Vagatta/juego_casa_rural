@@ -757,7 +757,7 @@ function VotingNow() {
       ) : (
         <PrivacyGate id={`vote:${view.code}:${v.kind}:${view.round?.index}`} title="Voto secreto" compact>
           <PlayerPicker players={active.filter((p) => p.id !== me.id)} max={v.picks} selected={picked} onChange={setPicked} />
-          {!isFinal && v.myWeight > 1 && <p className="chip chip--warn" style={{ alignSelf: 'center' }}><GIcon id="voto-doble" size={14} /> Tu voto cuenta doble</p>}
+          {!isFinal && v.myWeight > 1 && <p className="chip chip--warn" style={{ alignSelf: 'center' }}><GIcon id="voto-doble" size={14} /> Tu voto cuenta {v.myWeight === 2 ? 'doble' : `×${v.myWeight}`}</p>}
           {!isFinal && me.role?.id === 'ermitano' && <p className="muted small" style={{ alignSelf: 'center' }}>Si votas rompes tu voto de silencio y pierdes el bonus del Ermitaño.</p>}
           <Button block variant="danger" arrow disabled={busy || !picked.length} onClick={() => run({ type: 'vote', targets: picked })}>
             {isFinal ? 'Acusar' : 'Votar'}

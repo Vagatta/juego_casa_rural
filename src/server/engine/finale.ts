@@ -66,7 +66,7 @@ export function computeFinale(g: Game): Omit<FinaleView, 'step' | 'roles'> {
 
   // El Ermitaño cumplió su voto de silencio si no votó en ningún juicio
   const ermitano = everyone.find((p) => p.roleId === 'ermitano');
-  const ermitanoWon = ermitano && (ermitano.stats.votesCast ?? 0) === 0 ? ermitano.id : null;
+  const ermitanoWon = ermitano && !ermitano.left && (ermitano.stats.votesCast ?? 0) === 0 ? ermitano.id : null;
   if (ermitanoWon) add(ermitanoWon, FINAL_BONUS.ermitano);
 
   // ---- apuestas de la Gran Acusación: acertar paga el doble de lo apostado

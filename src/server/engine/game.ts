@@ -292,6 +292,9 @@ function enterVoting(g: Game, kind: 'juicio' | 'final'): void {
 
 function revealJudgment(g: Game): void {
   const v = g.vote!;
+  // El voto lastrado pesa en el recuento, no al emitirse — así vale aunque el
+  // evento se lance con la votación abierta o el condenado haya votado ya
+  if (g.flags.ladenVote) for (const id of g.condemned) if (v.ballots[id]) v.weights[id] = (v.weights[id] ?? 1) + 1;
   const counts = new Map<string, number>();
   for (const [voter, targets] of Object.entries(v.ballots)) {
     for (const t of targets) counts.set(t, (counts.get(t) ?? 0) + (v.weights[voter] ?? 1));
@@ -695,8 +698,6 @@ function castVote(g: Game, p: PlayerState, targets: string[]): void {
   v.ballots[p.id] = unique;
   if (v.kind === 'juicio') {
     p.stats.votesCast = (p.stats.votesCast ?? 0) + 1; // ?? por snapshots anteriores a la stat
-    // El condenado del juicio anterior vota con la rabia acumulada si cayó el evento
-    if (g.flags.ladenVote && g.condemned.includes(p.id)) v.weights[p.id] = (v.weights[p.id] ?? 1) + 1;
     if (p.inventory.voto_doble > 0) {
       p.inventory.voto_doble--;
       v.weights[p.id] = (v.weights[p.id] ?? 1) + 1;
@@ -911,6 +912,8 @@ export function abilityBlocker(g: Game, p: PlayerState): string | null {
   if (g.phase !== 'INVESTIGATION') return 'Solo durante la investigación';
   if (ability.id === 'reparar' && g.grietas === 0) return 'No hay grietas que reparar';
   if (ability.id === 'revelado' && !g.lastJudgment) return 'Aún no ha habido juicio';
+  // El Padrino apadrina al empezar la noche, no cuando ya sabe quién es el Cuco
+  if (ability.id === 'apadrinar' && g.roundIndex > 1) return 'Solo puedes apadrinar en las primeras rondas';
   return null;
 }
 
