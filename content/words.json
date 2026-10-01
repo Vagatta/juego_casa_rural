@@ -1,0 +1,19 @@
+{
+  "palabras": ["casa", "chorizo", "misterio", "vaca", "abuela", "fantasma", "tortilla", "botijo", "chimenea", "gallina", "sospechoso", "cerveza", "pueblo", "mentira", "vela", "tractor", "croqueta", "secreto", "leña", "jamón", "llave", "manta", "siesta", "verbena", "tinaja", "candil", "almiar", "vereda", "trillo", "lagar", "lucerito", "desván", "chismoso", "aldeano", "pócima", "despensa", "cerilla", "establo"],
+  "objetos": ["un cojín", "una cuchara", "un vaso", "una zapatilla", "una manta", "el mando de la tele", "un calcetín", "una servilleta", "una piña", "un tenedor", "una botella vacía", "un libro", "una taza", "un trapo de cocina", "una naranja", "un mechero", "un capazo", "una caja de cerillas", "un pañuelo", "una jarra", "un sombrero", "una cuerda", "un trozo de carbón", "una escalera de mano", "un barreño", "un azadón de juguete"],
+  "expresiones": ["a mí plin", "de categoría", "madre mía", "ojo cuidao", "qué barbaridad", "ni tan mal", "esto es un escándalo", "me parto", "vaya tela", "qué me estás contando", "más perdido que un pulpo en un garaje", "hablar hasta por los codos", "más pesado que una vaca en brazos", "quedarse más ancho que largo", "aquí no ha pasado nada", "eso me huele a chamusquina", "menos lobos"],
+  "impostor": [
+    ["tortilla", "paella"], ["chimenea", "barbacoa"], ["gallina", "pato"], ["tractor", "cosechadora"],
+    ["vino", "cerveza"], ["siesta", "resaca"], ["piscina", "río"], ["jamón", "chorizo"],
+    ["vaca", "toro"], ["manta", "edredón"], ["fantasma", "zombi"], ["pueblo", "ciudad"],
+    ["croqueta", "empanadilla"], ["verbena", "boda"], ["abuela", "suegra"], ["camping", "albergue"],
+    ["cabra", "oveja"], ["botijo", "cantimplora"], ["senderismo", "escalada"], ["hoguera", "barbacoa"],
+    ["guitarra", "ukelele"], ["mus", "parchís"], ["karaoke", "discoteca"], ["pan", "tostada"],
+    ["mosquito", "avispa"], ["luna", "estrella"], ["herradura", "espuela"], ["gazpacho", "salmorejo"],
+    ["linterna", "vela"], ["hamaca", "tumbona"], ["pozo", "fuente"], ["espantapájaros", "maniquí"],
+    ["hoz", "guadaña"], ["granero", "pajar"], ["corral", "huerto"],
+    ["sillón", "butaca"], ["almanaque", "calendario"], ["tinaja", "barrica"], ["zorro", "gallinero"],
+    ["gato", "zorro"], ["alhaja", "tesoro"], ["farolillo", "candil"], ["corzo", "ciervo"],
+    ["cencerro", "cascabel"], ["establo", "cuadra"]
+  ]
+}

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+data/
+.env
+.env.*
+
+# Packs fuente de game-icons.net (los iconos usados están en src/client/assets/icons/)
+1x1/
+2x2/
+
+# Artefacto de redirección en Windows
+nul

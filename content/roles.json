@@ -1,0 +1,195 @@
+[
+  {
+    "id": "curioso",
+    "name": "El Curioso",
+    "emoji": "🔍",
+    "faction": "huesped",
+    "summary": "Metes la nariz en todo. Es tu mayor virtud.",
+    "objective": "Encended velas y desenmascarad a los Cucos en la Gran Acusación.",
+    "ability": {
+      "id": "investigar",
+      "name": "Investigar",
+      "text": "Elige a dos jugadores. La casa te dirá, sin mentir, si entre ellos hay al menos un Cuco.",
+      "targets": 2,
+      "targetLabels": ["Primer sospechoso", "Segundo sospechoso"],
+      "perRound": 1
+    }
+  },
+  {
+    "id": "abuela",
+    "name": "La Abuela",
+    "emoji": "🧓",
+    "faction": "huesped",
+    "summary": "Has visto de todo en esta casa. Y has cocinado para todos.",
+    "objective": "Encended velas y desenmascarad a los Cucos en la Gran Acusación.",
+    "ability": {
+      "id": "receta",
+      "name": "Receta secreta",
+      "text": "Una vez por partida: recibes tres nombres. Uno de ellos es un Cuco, seguro.",
+      "targets": 0,
+      "perGame": 1
+    }
+  },
+  {
+    "id": "manitas",
+    "name": "El Manitas",
+    "emoji": "🔧",
+    "faction": "huesped",
+    "summary": "Arreglas cualquier cosa con cinta americana y fe.",
+    "objective": "Encended velas y desenmascarad a los Cucos en la Gran Acusación.",
+    "ability": {
+      "id": "reparar",
+      "name": "Reparar",
+      "text": "Una vez por partida: conviertes una grieta en vela. Todos sabrán que alguien reparó la casa, pero no quién.",
+      "targets": 0,
+      "perGame": 1
+    }
+  },
+  {
+    "id": "fotografa",
+    "name": "La Fotógrafa",
+    "emoji": "📷",
+    "faction": "huesped",
+    "summary": "Siempre con la cámara. Siempre en el momento justo.",
+    "objective": "Encended velas y desenmascarad a los Cucos en la Gran Acusación.",
+    "ability": {
+      "id": "revelado",
+      "name": "Revelado",
+      "text": "Dos veces por partida: descubres a quién votó un jugador en el último juicio.",
+      "targets": 1,
+      "targetLabels": ["¿De quién quieres revelar el voto?"],
+      "perGame": 2
+    }
+  },
+  {
+    "id": "chismoso",
+    "name": "El Chismoso",
+    "emoji": "🗣️",
+    "faction": "huesped",
+    "summary": "Te enteras de todo. Absolutamente de todo.",
+    "objective": "Encended velas y desenmascarad a los Cucos en la Gran Acusación.",
+    "passive": {
+      "name": "Oído fino",
+      "text": "Te llega un rumor cada vez que roban a alguien o alguien recibe una nota falsa. Sabrás a quién, nunca quién lo hizo."
+    }
+  },
+  {
+    "id": "vecino",
+    "name": "El Vecino",
+    "emoji": "🏡",
+    "faction": "huesped",
+    "summary": "No tienes ningún poder. Pero tienes mucho tiempo libre.",
+    "objective": "Encended velas y desenmascarad a los Cucos en la Gran Acusación.",
+    "passive": {
+      "name": "Manos libres",
+      "text": "Tienes tres misiones activas en lugar de dos. Más misiones, más monedas."
+    }
+  },
+  {
+    "id": "contable",
+    "name": "El Contable",
+    "emoji": "🧮",
+    "faction": "huesped",
+    "summary": "Llevas los libros de la casa desde hace años. Tú sabes lo que valen las cosas.",
+    "objective": "Encended velas y desenmascarad a los Cucos en la Gran Acusación.",
+    "passive": {
+      "name": "Cliente habitual",
+      "text": "La Despensa te sale un 25% más barata. Regatear es un arte."
+    }
+  },
+  {
+    "id": "buscavidas",
+    "name": "El Buscavidas",
+    "emoji": "🎩",
+    "faction": "huesped",
+    "summary": "No estás aquí por la casa ni por los Cucos. Estás aquí por el dinero.",
+    "objective": "Acaba la noche entre los 3 jugadores más ricos de la casa. Solo eso te salva.",
+    "passive": {
+      "name": "El premio es la pasta",
+      "text": "Juegas como un huésped más, pero tu victoria es personal: top 3 en monedas al final, contadas antes de los premios de la ceremonia."
+    }
+  },
+  {
+    "id": "insomne",
+    "name": "El Insomne",
+    "emoji": "🌙",
+    "faction": "huesped",
+    "summary": "No duermes. Oyes cada crujido del pasillo.",
+    "objective": "Encended velas y desenmascarad a los Cucos en la Gran Acusación.",
+    "passive": {
+      "name": "Oído de guardia",
+      "text": "Te llega una nota cada vez que alguien recibe una misión nueva. Sabes a quién vigilar para el ¡PILLADO!."
+    }
+  },
+  {
+    "id": "notario",
+    "name": "El Notario",
+    "emoji": "📜",
+    "faction": "huesped",
+    "summary": "Treinta años dando fe en el ayuntamiento. La burocracia es tu superpoder.",
+    "objective": "Encended velas y desenmascarad a los Cucos en la Gran Acusación.",
+    "ability": {
+      "id": "notario",
+      "name": "Sello notarial",
+      "text": "Una vez por partida: certificas si una nota que hayas recibido es auténtica o una falsificación. Úsala desde tus Pistas.",
+      "targets": 0,
+      "perGame": 1
+    }
+  },
+  {
+    "id": "cuco_falsificador",
+    "name": "Cuco Falsificador",
+    "emoji": "🐦",
+    "faction": "cuco",
+    "summary": "Pones tus huevos en nidos ajenos. Y tu letra es idéntica a la de la casa.",
+    "objective": "Abrid grietas saboteando pruebas y que no os desenmascaren. Tienes 2 cerillas para apagar velas en el Ritual.",
+    "ability": {
+      "id": "falsificar",
+      "name": "Falsificar",
+      "text": "Una vez por ronda: deja una nota falsa bajo la puerta de alguien, señalando a quien tú elijas. Llegará con el mismo aspecto que las notas de la casa.",
+      "targets": 2,
+      "targetLabels": ["¿Quién recibe la nota?", "¿A quién señala la nota?"],
+      "perRound": 1
+    }
+  },
+  {
+    "id": "cuco_carterista",
+    "name": "Cuco Carterista",
+    "emoji": "🧤",
+    "faction": "cuco",
+    "summary": "Unas manos preciosas. Rápidas. Ajenas.",
+    "objective": "Abrid grietas saboteando pruebas y que no os desenmascaren. Tienes 2 cerillas para apagar velas en el Ritual.",
+    "ability": {
+      "id": "mano_larga",
+      "name": "Mano larga",
+      "text": "Una vez por ronda: robas 40 monedas a alguien sin pagar nada. Un Candado te lo impide.",
+      "targets": 1,
+      "targetLabels": ["¿A quién le vacías el bolsillo?"],
+      "perRound": 1
+    }
+  },
+  {
+    "id": "cuco_doble",
+    "name": "Cuco Doble",
+    "emoji": "🎭",
+    "faction": "cuco",
+    "summary": "Tienes una cara para cada ocasión.",
+    "objective": "Abrid grietas saboteando pruebas y que no os desenmascaren. Tienes 2 cerillas para apagar velas en el Ritual.",
+    "passive": {
+      "name": "Doble cara",
+      "text": "Las investigaciones del Curioso y la receta de la Abuela te ven como un huésped más."
+    }
+  },
+  {
+    "id": "turista",
+    "name": "El Turista",
+    "emoji": "🧳",
+    "faction": "turista",
+    "summary": "Nadie sabe quién te invitó. Tú tampoco.",
+    "objective": "Ganas tú solo si eres el jugador más señalado en la Gran Acusación. Haz que sospechen de ti, sin pasarte.",
+    "passive": {
+      "name": "Despistado profesional",
+      "text": "Recibes misiones para parecer sospechoso. Si al final te señalan más que a nadie, te llevas 250 monedas."
+    }
+  }
+]

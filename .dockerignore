@@ -1,0 +1,11 @@
+node_modules
+dist
+data
+*.log
+.git
+.devin
+tests
+docs
+scripts
+Dockerfile
+.dockerignore
