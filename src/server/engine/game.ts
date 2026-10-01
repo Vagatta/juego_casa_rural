@@ -402,6 +402,8 @@ export function autoAdvanceDelay(g: Game): number | null {
 
 /** Temporizadores. Devuelve true si ha cambiado algo. */
 export function tick(g: Game, out: Outbox, now = Date.now()): boolean {
+  // En pausa el mundo se congela: misiones relámpago, subasta y eventos también esperan
+  if (g.pausedRemainingMs !== null) return false;
   // Las misiones relámpago caducan cuando cae su cuenta atrás
   const expired = g.missions.filter((m) => m.status === 'active' && m.expiresAt && now >= m.expiresAt);
   if (expired.length) {
@@ -485,8 +487,14 @@ export function hostAction(g: Game, a: HostAction, out: Outbox, isDirectorDevice
     case 'resume': {
       if (g.pausedRemainingMs === null) throw new GameError('No está en pausa');
       const now = Date.now();
+      const pausedFor = g.pausedAt ? now - g.pausedAt : 0;
+      // Los contadores internos también se mueven: la pausa no consume sus plazos
       const hunt = g.challenge?.code;
-      if (hunt?.huntStartsAt && g.pausedAt) hunt.huntStartsAt += now - g.pausedAt;
+      if (hunt?.huntStartsAt) hunt.huntStartsAt += pausedFor;
+      if (g.truceUntil > now) g.truceUntil += pausedFor;
+      if (g.event?.endsAt) g.event.endsAt += pausedFor;
+      if (g.auction) g.auction.endsAt += pausedFor;
+      for (const m of g.missions) if (m.status === 'active' && m.expiresAt) m.expiresAt += pausedFor;
       g.phaseEndsAt = now + g.pausedRemainingMs;
       g.pausedRemainingMs = null;
       g.pausedAt = null;
@@ -943,6 +951,13 @@ export function leavePlayer(g: Game, p: PlayerState, out: Outbox): void {
   }
   if (g.phase === 'RITUAL' && g.ritual?.status === 'open' && g.ritual.participants.every((id) => g.ritual!.choices[id] || getPlayer(g, id).left)) revealRitual(g, out);
   if (g.phase === 'VOTING' && g.vote?.status === 'open' && g.vote.voters.every((id) => g.vote!.ballots[id] || getPlayer(g, id).left || roleOf(getPlayer(g, id))?.id === 'ermitano')) revealJudgment(g);
+}
+
+/** Un socket caído no marca al jugador como ausente (puede volver), pero sí
+ *  desbloquea las esperas que ya no necesitan su input: sin esto, un móvil que
+ *  se apaga justo tras el último "listo" dejaba la casa esperándole en vano. */
+export function onPlayerOffline(g: Game, out: Outbox): void {
+  if (g.phase === 'ROLE_REVEAL' && activePlayers(g).every((x) => x.ready || !x.connected)) startRound(g, 0, out);
 }
 
 /** Un jugador que se fue puede volver con su token mientras la partida siga. */

@@ -137,6 +137,34 @@ export function useGameConnection(code: string, token: string | undefined): Game
     };
   }, [code, token]);
 
+  // Pantalla despierta mientras dura la partida: sin esto el móvil se bloquea solo
+  // por timeout de pantalla y el jugador se pierde el ritual o el juicio.
+  // El sistema suelta el lock al ocultar la app → se vuelve a pedir al volver.
+  useEffect(() => {
+    const wl = (navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void>; released: boolean; addEventListener: (e: string, cb: () => void) => void }> } }).wakeLock;
+    if (!wl || !token) return;
+    let dead = false;
+    let lock: { release: () => Promise<void>; released: boolean } | null = null;
+    const acquire = async () => {
+      if (dead || document.visibilityState !== 'visible') return;
+      try {
+        lock = await wl.request('screen');
+      } catch {
+        lock = null; // sin permiso o sin soporte real: no pasa nada
+      }
+    };
+    const onVisible = () => {
+      if (!lock || lock.released) void acquire();
+    };
+    void acquire();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      dead = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      void lock?.release().catch(() => {});
+    };
+  }, []);
+
   const emit = useCallback(async (event: string, action: Record<string, unknown>): Promise<Ack> => {
     const socket = socketRef.current;
     if (!socket?.connected) return { ok: false, error: 'Sin conexión. Reconectando...' };

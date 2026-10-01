@@ -2,7 +2,7 @@ import type { Server, Socket } from 'socket.io';
 import { z } from 'zod';
 import { LETTER_MAX_LEN } from '../shared/constants.ts';
 import type { Ack } from '../shared/types.ts';
-import { hostAction, playerAction, rejoinPlayer, rematchGame, tick, type HostAction, type PlayerAction } from './engine/game.ts';
+import { hostAction, onPlayerOffline, playerAction, rejoinPlayer, rematchGame, tick, type HostAction, type PlayerAction } from './engine/game.ts';
 import { type Game, GameError, type Outbox, announce, newOutbox } from './engine/state.ts';
 import type { GameStore } from './store.ts';
 import { buildView, type Viewer } from './views.ts';
@@ -211,15 +211,23 @@ export function attachSockets(io: Server, store: GameStore, opts: { rateLimit?: 
       if (!game) return;
       const others = socketsOf(game.code).filter((x) => x.id !== s.id);
       if (isHostSocket(game, s)) game.hostLastSeen = Date.now();
+      let wentOffline = false;
       if (s.data.playerId && !others.some((x) => x.data.playerId === s.data.playerId)) {
         const p = game.players.find((x) => x.id === s.data.playerId);
         if (p) {
           p.connected = false;
           p.lastSeen = Date.now();
+          wentOffline = true;
         }
       }
-      store.touch(game);
-      broadcast(game);
+      const out = newOutbox();
+      try {
+        if (wentOffline) onPlayerOffline(game, out);
+        store.touch(game);
+        broadcast(game, out);
+      } catch (err) {
+        console.error(`[disconnect ${game.code}]`, err);
+      }
     });
   });
 

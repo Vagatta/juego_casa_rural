@@ -304,7 +304,9 @@ export function dealMissions(g: Game, out: Outbox): void {
 
 function ownActiveMission(g: Game, p: PlayerState, missionId: string): MissionState {
   const m = g.missions.find((x) => x.id === missionId && x.playerId === p.id);
-  if (!m || m.status !== 'active') throw new GameError('Esa misión no está activa');
+  // expiresAt también se mira aquí: el barrido del tick corre cada segundo y la
+  // misión podría estar ya muerta aunque aún no haya pasado el barrendero
+  if (!m || m.status !== 'active' || (m.expiresAt && Date.now() >= m.expiresAt)) throw new GameError('Esa misión no está activa');
   return m;
 }
 
@@ -338,7 +340,7 @@ export function pillar(g: Game, p: PlayerState, target: PlayerState, out: Outbox
     return;
   }
 
-  const caught = g.missions.find((m) => m.playerId === target.id && m.status === 'active' && m.targets.includes(p.id));
+  const caught = g.missions.find((m) => m.playerId === target.id && m.status === 'active' && (!m.expiresAt || Date.now() < m.expiresAt) && m.targets.includes(p.id));
   if (caught) {
     caught.status = 'burned';
     caught.resolvedAt = Date.now();
