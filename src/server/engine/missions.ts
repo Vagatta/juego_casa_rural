@@ -94,13 +94,23 @@ function eligible(g: Game, p: PlayerState, def: MissionDef, opts: AssignOpts): b
   return true;
 }
 
-function chooseTargets(g: Game, p: PlayerState, count: number): string[] {
+function chooseTargets(g: Game, p: PlayerState, count: number, tags: string[] = []): string[] {
   if (count === 0) return [];
   const incoming = (id: string) => g.missions.filter((m) => m.status === 'active' && m.targets.includes(id)).length;
   // Preferimos objetivos con menos misiones encima: reparte la "presión" y evita que alguien sea imposible de engañar
   const others = shuffle(activePlayers(g).filter((o) => o.id !== p.id)).sort((a, b) => incoming(a.id) - incoming(b.id));
-  return others.slice(0, count).map((o) => o.id);
+  const ids = others.slice(0, count).map((o) => o.id);
+  // {A} tiene que votar: si le toca al Ermitaño, la misión pide romperle el silencio.
+  // Se cambia por el siguiente candidato (o pasa a {B}, que no vota); si no hay otro, se queda.
+  if (tags.includes('target_votes') && getRole(g, ids[0]) === 'ermitano') {
+    const swap = others.find((o) => o.roleId !== 'ermitano' && !ids.slice(1).includes(o.id));
+    if (swap) ids[0] = swap.id;
+    else if (ids.length > 1) [ids[0], ids[1]] = [ids[1], ids[0]];
+  }
+  return ids;
 }
+
+const getRole = (g: Game, id: string | undefined) => g.players.find((x) => x.id === id)?.roleId;
 
 function resolveText(g: Game, def: { text: string }, targets: string[]): string {
   const { palabras, objetos, expresiones } = content.words;
@@ -142,7 +152,7 @@ export function assignMission(g: Game, p: PlayerState, out: Outbox, opts: Assign
   const def = weighted(pool, (d) => weights[d.difficulty] * (d.tags.includes('custom') || d.faction !== 'any' ? 3 : 1));
   if (!def) return null;
 
-  const targets = chooseTargets(g, p, def.targets);
+  const targets = chooseTargets(g, p, def.targets, def.tags);
   const mission: MissionState = {
     id: shortId(),
     missionId: def.id,

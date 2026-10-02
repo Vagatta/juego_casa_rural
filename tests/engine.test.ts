@@ -1098,6 +1098,7 @@ test('incompatibilidades de jugabilidad: roles, misiones, eventos y final', () =
     g.used.missions = [];
     dealMissions(g, out);
     assert.ok(g.missions.filter((m) => m.playerId === laura.id).every((m) => !m.tags.includes('votes_self')), 'nada de votar para el Ermitaño');
+    assert.ok(g.missions.filter((m) => m.tags.includes('target_votes')).every((m) => m.targets[0] !== laura.id), 'nadie recibe «haz que el Ermitaño vote»');
   }
 
   // «Los Cucos traman algo» no le chiva al Insomne quiénes son los Cucos
