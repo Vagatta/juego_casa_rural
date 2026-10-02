@@ -137,6 +137,12 @@ El sorteo de oficios es entre Manitas, Fotógrafa, Chismoso, Contable, Insomne y
 
 |**El corro 🔗** (misiones de tres): la casa reparte la misma misión a tres cómplices a la vez — cada uno ve quiénes son los otros dos. Pacto grupal o pillada colectiva.
 
+|**Misiones que comprueba la casa 👁️**: algunas misiones no llevan botón de «¡Cumplida!» — el servidor mira el dato real en su momento (al revelar el juicio, al cerrar la ronda o al ver el evento: habilidad usada, sello del Notario, sobre entregado, ¡PILLADO! acertado). Nadie las cobra sin cumplirlas. Las de juicio solo se reparten si queda un juicio por delante; las de evento mueren al cerrar su ronda.
+
+|**Duelos ⚔️**: con suerte, la casa reparte a la vez dos misiones opuestas a dos jugadores (uno ataca, otro se defiende) — ninguno sabe que el otro tiene la contraria, pero el ¡PILLADO! sí funciona entre ellos. Se resuelven solas; solo cobra quien lo consigue de verdad.
+
+|**La patata caliente 🥔**: una bomba de mano en mano. Hay que pasarla a otra persona (acción `passMission` + el gesto físico) antes de que acabe la ronda; quien la tenga al final paga 30 🪙. Pasarla delata ante quien la recibe que la tenías, y no se la puedes devolver a quien te la dio.
+
 ## 4. Pistas
 
 Las pistas se generan con **datos reales de la partida**:

@@ -36,7 +36,17 @@ import {
 import { deliverClue, forgedNote, investigate, randomClue, recipe, shopClueTruth, voteReveal } from './clues.ts';
 import { applyEvent, resolveAuction, rollRoundEvent } from './events.ts';
 import { FINALE_STEPS, computeFinale } from './finale.ts';
-import { claimMission, dealMissions, discardMission, futureJudgment, pillar } from './missions.ts';
+import {
+  claimMission,
+  dealMissions,
+  discardMission,
+  explodePatata,
+  futureJudgment,
+  notifyAutoMissions,
+  passPatata,
+  pillar,
+  resolveAutoMissions,
+} from './missions.ts';
 import { buildPlan, needsRitual } from './plan.ts';
 import { gameContent } from '../content.ts';
 import { chance, secretToken, shortId, shuffle } from './rng.ts';
@@ -299,7 +309,7 @@ function enterVoting(g: Game, kind: 'juicio' | 'final'): void {
   setPhase(g, kind === 'final' ? 'FINAL_ACCUSATION' : 'VOTING', kind === 'final' ? TIMERS.finalVote : TIMERS.vote);
 }
 
-function revealJudgment(g: Game): void {
+function revealJudgment(g: Game, out: Outbox): void {
   const v = g.vote!;
   // El voto lastrado pesa en el recuento, no al emitirse — así vale aunque el
   // evento se lance con la votación abierta o el condenado haya votado ya
@@ -334,6 +344,16 @@ function revealJudgment(g: Game): void {
   if (round) round.suspects = v.suspects;
   if (v.suspects.length) announce(g, `Bajo sospecha: ${v.suspects.map((id) => getPlayer(g, id).name).join(' y ')}. Se perderán el próximo Ritual y la casa les pondrá una tarea sospechosa.`, 'danger');
   else announce(g, 'Los votos están muy repartidos. Nadie queda bajo sospecha.', 'info');
+  // Las misiones de juicio se miran con el recuento ya cerrado: la casa vio lo que vio
+  resolveAutoMissions(g, 'judgment', out);
+}
+
+/** La ronda muere al entrar el resumen: la patata explota primero (el sablazo puede
+ *  decidir una misión de monedas) y después la casa resuelve lo que prometió mirar. */
+function closeRound(g: Game, out: Outbox): void {
+  explodePatata(g, out);
+  resolveAutoMissions(g, 'round_end', out);
+  setPhase(g, 'ROUND_RESULT');
 }
 
 function enterFinale(g: Game, out: Outbox): void {
@@ -414,10 +434,10 @@ export function advance(g: Game, out: Outbox): void {
       return enterInvestigation(g);
     case 'INVESTIGATION':
       if (currentPlan(g)!.hasJudgment) return enterVoting(g, 'juicio');
-      return setPhase(g, 'ROUND_RESULT');
+      return closeRound(g, out);
     case 'VOTING':
-      if (g.vote!.status === 'open') return revealJudgment(g);
-      return setPhase(g, 'ROUND_RESULT');
+      if (g.vote!.status === 'open') return revealJudgment(g, out);
+      return closeRound(g, out);
     case 'ROUND_RESULT':
       if (isLastRound(g)) return enterVoting(g, 'final');
       return startRound(g, g.roundIndex + 1, out);
@@ -627,6 +647,7 @@ export type PlayerAction =
   | { type: 'buy'; item: ShopItemId; targetId?: string; amount?: number; text?: string }
   | { type: 'ability'; targets: string[] }
   | { type: 'claimMission' | 'discardMission'; missionId: string }
+  | { type: 'passMission'; missionId: string; targetId: string }
   | { type: 'pillar'; targetId: string }
   | { type: 'bet'; targetId: string; amount: number }
   | { type: 'note'; text: string }
@@ -689,7 +710,7 @@ export function playerAction(g: Game, p: PlayerState, a: PlayerAction, out: Outb
       return;
     }
     case 'vote':
-      return castVote(g, p, a.targets);
+      return castVote(g, p, a.targets, out);
     case 'buy':
       return buy(g, p, a, out);
     case 'ability':
@@ -699,6 +720,10 @@ export function playerAction(g: Game, p: PlayerState, a: PlayerAction, out: Outb
       return claimMission(g, p, a.missionId, out);
     case 'discardMission':
       return discardMission(g, p, a.missionId);
+    case 'passMission':
+      // La patata es un acto físico: vale en cualquier momento de la ronda, pero no fuera de ella
+      if (g.roundIndex < 0 || g.phase === 'FINALE' || g.phase === 'FINAL_ACCUSATION') throw new GameError('Ahora no');
+      return passPatata(g, p, a.missionId, getPlayer(g, a.targetId), out);
     case 'pillar':
       if (g.roundIndex < 0 || g.phase === 'FINALE' || g.phase === 'FINAL_ACCUSATION') throw new GameError('Ahora no');
       if (gameNow(g) < g.truceUntil) throw new GameError('La casa está de sobremesa: ni un ¡PILLADO! hasta que acabe');
@@ -748,6 +773,7 @@ export function playerAction(g: Game, p: PlayerState, a: PlayerAction, out: Outb
           : `📜 Sello del Notario sobre «${excerpt}»: AUTÉNTICA. La escribió alguien de esta casa. Ojo: auténtica no significa sincera.`,
         truth: 'true',
       });
+      notifyAutoMissions(g, { type: 'certify', forgedBy: clue.forgedBy });
       return;
     }
     case 'letter': {
@@ -796,7 +822,7 @@ export function playerAction(g: Game, p: PlayerState, a: PlayerAction, out: Outb
   }
 }
 
-function castVote(g: Game, p: PlayerState, targets: string[]): void {
+function castVote(g: Game, p: PlayerState, targets: string[], out: Outbox): void {
   assertPhase(g, 'VOTING', 'FINAL_ACCUSATION');
   const v = g.vote!;
   if (v.status !== 'open' || !v.voters.includes(p.id)) throw new GameError('No puedes votar ahora');
@@ -816,7 +842,7 @@ function castVote(g: Game, p: PlayerState, targets: string[]): void {
     }
     // El juicio también espera al Ermitaño: cerrar sin él delataría ante toda la
     // casa quién es (un huésped confirmado) y nadie podría fingir su silencio
-    if (v.voters.every((id) => v.ballots[id] || getPlayer(g, id).left)) revealJudgment(g);
+    if (v.voters.every((id) => v.ballots[id] || getPlayer(g, id).left)) revealJudgment(g, out);
   }
 }
 
@@ -914,6 +940,7 @@ function buy(g: Game, p: PlayerState, a: Extract<PlayerAction, { type: 'buy' }>,
       p.stats.coinsGifted += amount;
       toast(out, target.id, { text: `✉️ ${p.name} te ha dejado un sobre con ${amount} 🪙`, tone: 'coins', private: true, sound: 'coins' });
       toast(out, p.id, { text: `Sobre entregado a ${target.name}`, tone: 'info', private: true });
+      notifyAutoMissions(g, { type: 'gift', fromId: p.id, toId: target.id });
       return;
     }
     case 'coartada':
@@ -1023,6 +1050,9 @@ function useAbility(g: Game, p: PlayerState, targetIds: string[], out: Outbox): 
   p.ability.inRound++;
   p.ability.total++;
   p.stats.abilityUses++;
+  // La casa toma nota: hay misiones que se cumplen cuando alguien gasta su habilidad en ti
+  const clean = ability.id === 'investigar' ? !targets.some(seenAsCuco) : undefined;
+  notifyAutoMissions(g, { type: 'ability', userId: p.id, abilityId: ability.id, targetIds, clean });
 }
 
 export function abilityBlocker(g: Game, p: PlayerState): string | null {
@@ -1069,7 +1099,7 @@ export function leavePlayer(g: Game, p: PlayerState, out: Outbox): void {
     if (waiting && c.kind !== 'physical' && c.kind !== 'code_hunt' && pendingResponders(g, c).length === 0) finalizeChallenge(g, out);
   }
   if (g.phase === 'RITUAL' && g.ritual?.status === 'open' && g.ritual.participants.every((id) => g.ritual!.choices[id] || getPlayer(g, id).left)) revealRitual(g, out);
-  if (g.phase === 'VOTING' && g.vote?.status === 'open' && g.vote.voters.every((id) => g.vote!.ballots[id] || getPlayer(g, id).left)) revealJudgment(g);
+  if (g.phase === 'VOTING' && g.vote?.status === 'open' && g.vote.voters.every((id) => g.vote!.ballots[id] || getPlayer(g, id).left)) revealJudgment(g, out);
   maybeAdvanceAllReady(g, out);
 }
 

@@ -39,6 +39,28 @@ const missionSchema = z.object({
   targets: z.union([z.literal(0), z.literal(1), z.literal(2)]),
   tags: z.array(z.string()),
   reward: z.number().int().positive().optional(),
+  /** La comprueba la casa (ver AUTO_CHECKS en missions.ts): sin botón de «¡Cumplida!» */
+  auto: z.string().optional(),
+  /** Solo para estos roles */
+  roles: z.array(z.string()).optional(),
+  /** Solo si otro jugador activo tiene este rol (p. ej. un Notario al que engañar) */
+  needsRole: z.string().optional(),
+});
+
+const duelSideSchema = z.object({
+  text: z.string(),
+  auto: z.string(),
+  difficulty: z.enum(['facil', 'media', 'dificil', 'epica']),
+  /** Esta mitad apunta al rival como {A} (si no, no sabe contra quién juega) */
+  targetsRival: z.boolean().optional(),
+});
+
+/** Duelo: dos misiones opuestas que reciben a la vez dos jugadores sin saberlo. */
+const duelSchema = z.object({
+  id: z.string(),
+  needsJudgment: z.boolean().optional(),
+  attack: duelSideSchema,
+  defend: duelSideSchema,
 });
 
 const challengeSchema = z.object({
@@ -114,6 +136,7 @@ const wordsSchema = z.object({
 });
 
 export type MissionDef = z.infer<typeof missionSchema>;
+export type DuelDef = z.infer<typeof duelSchema>;
 export type SuspectTaskDef = z.infer<typeof suspectSchema>;
 export type ChallengeDef = z.infer<typeof challengeSchema>;
 export type EventDef = z.infer<typeof eventSchema>;
@@ -138,6 +161,7 @@ export const content = {
   social: z.array(z.string()).min(5).parse(read('social.json')),
   suspect: unique(z.array(suspectSchema).parse(read('suspect.json')), 'suspect'),
   couple: unique(z.array(suspectSchema).parse(read('couple.json')), 'couple'),
+  duels: unique(z.array(duelSchema).parse(read('duels.json')), 'duels'),
   interro: z.array(z.string()).min(8).parse(read('interro.json')),
   words: wordsSchema.parse(read('words.json')),
 };
@@ -163,6 +187,7 @@ export interface GameContent {
   missions: MissionDef[];
   challenges: ChallengeDef[];
   events: EventDef[];
+  duels: DuelDef[];
   quiz: QuizDef[];
   social: string[];
   suspect: SuspectTaskDef[];
@@ -178,6 +203,7 @@ const DEFAULT_CONTENT: GameContent = {
   missions: content.missions,
   challenges: content.challenges,
   events: content.events,
+  duels: content.duels,
   quiz: content.quiz,
   social: content.social,
   suspect: content.suspect,
@@ -213,6 +239,8 @@ export function buildContent(mod?: ContentMod): GameContent {
     missions,
     challenges,
     events,
+    // Los duelos solo se pueden apagar: su texto vive en attack/defend
+    duels: content.duels.filter((d) => !off.has(d.id)),
     quiz,
     social: patchStrings(content.social, 'social', mod.extraSocial),
     suspect: patch(content.suspect, 'text'),

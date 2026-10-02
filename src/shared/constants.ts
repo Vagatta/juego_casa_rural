@@ -56,6 +56,13 @@ export const MARKET_DISCOUNT = 0.6;
 export const COUPLE_CHANCE = 0.5;
 export const COUPLE_REWARD = 60;
 
+/** Duelo de misiones: probabilidad por ronda de que dos jugadores reciban misiones opuestas */
+export const DUEL_CHANCE = 0.4;
+
+/** Patata caliente: probabilidad por ronda y lo que paga a quien le explote */
+export const PATATA_CHANCE = 0.3;
+export const PATATA_PENALTY = 30;
+
 /** El saboteador infiltrado: probabilidad en pruebas de equipo y paga si la prueba falla */
 export const SABOTEUR_CHANCE = 0.35;
 export const SABOTEUR_REWARD = 80;

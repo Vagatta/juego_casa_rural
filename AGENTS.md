@@ -14,7 +14,7 @@ Party game presencial para 6–12 jugadores. Los móviles son controladores con 
 
 ## Estructura
 
-- `content/*.json` — contenido modular (roles, misiones, pruebas, eventos, quiz, palabras, `suspect.json` = tareas forzadas del sospechoso). Editable sin tocar lógica.
+- `content/*.json` — contenido modular (roles, misiones, pruebas, eventos, quiz, palabras, `duels.json` = pares de misiones opuestas, `suspect.json` = tareas forzadas del sospechoso). Editable sin tocar lógica.
 - `src/shared/` — `types.ts` (solo vistas públicas/proyecciones) y `constants.ts`.
 - `src/server/` — `app.ts` (REST + estáticos), `sockets.ts` (auth por token, rate limit), `views.ts` (proyecciones por audiencia), `store.ts` (memoria + snapshot), `engine/` (máquina de estados, roles, misiones, pruebas, pistas, eventos, final).
 - `src/client/` — React. `lib/` (router hash-history mínimo, sesiones en localStorage, red socket+REST, sonido Web Audio sintetizado), `components/` (ui, cards, privacy), `screens/` (Home, Create, Join, HowTo, Player, phases, tabs, HostControls, Director, Finale), `styles/` (base, components, screens).

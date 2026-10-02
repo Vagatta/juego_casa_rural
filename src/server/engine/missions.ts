@@ -3,9 +3,12 @@ import {
   CORRO_REWARD,
   COUPLE_CHANCE,
   COUPLE_REWARD,
+  DUEL_CHANCE,
   MISSION_REWARD,
   MISSION_SLOTS,
   MISSION_SLOTS_VECINO,
+  PATATA_CHANCE,
+  PATATA_PENALTY,
   PILLADO_PENALTY,
   PILLADO_REWARD,
   SABOTEUR_REWARD,
@@ -13,7 +16,7 @@ import {
   STREAK_TARGET,
 } from '../../shared/constants.ts';
 import type { MissionDifficulty } from '../../shared/types.ts';
-import { content, gameContent, type MissionDef, type SuspectTaskDef } from '../content.ts';
+import { content, gameContent, type DuelDef, type MissionDef, type SuspectTaskDef } from '../content.ts';
 import { deliverClue } from './clues.ts';
 import { needsRitual } from './plan.ts';
 import { chance, pick, shortId, shuffle, weighted } from './rng.ts';
@@ -78,12 +81,21 @@ function eligible(g: Game, p: PlayerState, def: MissionDef, opts: AssignOpts): b
   if (opts.factionOnly && def.faction !== opts.factionOnly) return false;
   if (def.faction !== 'any' && def.faction !== faction) return false;
   if (def.targets > activePlayers(g).length - 1) return false;
-  if (opts.quick && def.tags.some((t) => HORIZON_TAGS.includes(t))) return false;
-  if (def.tags.includes('needs_judgment') && !futureJudgment(g)) return false;
+  // Las comprobadas por la casa se resuelven al juicio o al cerrar la ronda: nunca en 90 s
+  if (opts.quick && (def.auto || def.tags.some((t) => HORIZON_TAGS.includes(t)))) return false;
+  if (def.roles && !def.roles.includes(p.roleId ?? '')) return false;
+  if (def.needsRole && !activePlayers(g).some((o) => o.id !== p.id && o.roleId === def.needsRole)) return false;
+  // El horizonte lo manda la comprobación, no el texto: una misión de juicio sin juicios
+  // a la vista se quedaría activa para siempre
+  const autoAt = def.auto ? AUTO_CHECKS[def.auto]?.at : undefined;
+  if (def.auto && !autoAt) return false; // auto desconocido: contenido roto, no se reparte
+  if ((def.tags.includes('needs_judgment') || autoAt === 'judgment') && !futureJudgment(g)) return false;
   if (def.tags.includes('needs_ritual') && !futureRitual(g)) return false;
   if (def.tags.includes('needs_challenge') && !upcomingRounds(g).length) return false;
   // Misiones que obligan a votar chocan con el voto de silencio del Ermitaño
   if (def.tags.includes('votes_self') && p.roleId === 'ermitano') return false;
+  // Sin Cucos en la casa nadie te va a regalar monedas
+  if (def.tags.includes('needs_cuco') && !activePlayers(g).some((o) => o.id !== p.id && isCuco(o))) return false;
   // Compañero presente, no solo repartido: un Cuco cuyo socio se fue no tiene a quién cubrir
   if (def.tags.includes('needs_partner') && activePlayers(g).filter(isCuco).length < 2) return false;
   if (g.missions.some((m) => m.playerId === p.id && m.missionId === def.id)) return false;
@@ -153,6 +165,7 @@ export function assignMission(g: Game, p: PlayerState, out: Outbox, opts: Assign
   if (!def) return null;
 
   const targets = chooseTargets(g, p, def.targets, def.tags);
+  const auto = def.auto ? autoState(g, def.auto, p, targets) : undefined;
   const mission: MissionState = {
     id: shortId(),
     missionId: def.id,
@@ -166,6 +179,7 @@ export function assignMission(g: Game, p: PlayerState, out: Outbox, opts: Assign
     status: 'active',
     assignedRound: g.roundIndex,
     resolvedAt: null,
+    ...(auto && { auto }),
   };
   g.missions.push(mission);
   g.used.missions.push(def.id);
@@ -350,6 +364,8 @@ export function dealMissions(g: Game, out: Outbox): void {
   }
   dealCoupleMission(g, out);
   dealCorroMission(g, out);
+  dealDuel(g, out);
+  dealPatata(g, out);
 }
 
 function ownActiveMission(g: Game, p: PlayerState, missionId: string): MissionState {
@@ -364,6 +380,8 @@ export function claimMission(g: Game, p: PlayerState, missionId: string, out: Ou
   const m = ownActiveMission(g, p, missionId);
   // La orden oscura no se reclama: cobra sola al terminar la prueba, y solo si el equipo falló
   if (m.tags.includes(SABOTEUR_TAG)) throw new GameError('Eso no se reclama: se resuelve solo al terminar la prueba');
+  if (m.auto) throw new GameError('Esta la comprueba la casa: no hace falta pulsar nada');
+  if (m.tags.includes(PATATA_TAG)) throw new GameError('La patata no se cumple: se pasa');
   completeMission(g, p, m, out, 'Misión cumplida');
   announce(g, 'Alguien acaba de cumplir una misión secreta.', 'special');
 }
@@ -372,6 +390,7 @@ export function discardMission(g: Game, p: PlayerState, missionId: string): void
   const m = ownActiveMission(g, p, missionId);
   if (m.tags.includes(SUSPECT_TAG)) throw new GameError('La orden de la casa no se descarta');
   if (m.tags.includes(SABOTEUR_TAG)) throw new GameError('La orden oscura no se descarta');
+  if (m.tags.includes(PATATA_TAG)) throw new GameError('La patata no se tira: se pasa a otra persona');
   m.status = 'discarded';
   m.resolvedAt = Date.now();
 }
@@ -404,6 +423,7 @@ export function pillar(g: Game, p: PlayerState, target: PlayerState, out: Outbox
     toast(out, p.id, { text: `¡PILLADO! Tenía una misión sobre ti · +${gained} 🪙`, tone: 'coins', private: true, sound: 'coins' });
     toast(out, target.id, { text: `${p.name} te ha pillado. Tu misión se ha quemado.`, tone: 'danger', private: true, sound: 'danger' });
     announce(g, `¡PILLADO! ${p.name} ha pillado a ${target.name} con las manos en la masa.`, 'danger');
+    notifyAutoMissions(g, { type: 'pillado', byId: p.id });
   } else {
     const lost = Math.min(PILLADO_PENALTY, p.coins);
     p.coins -= lost;
@@ -412,3 +432,193 @@ export function pillar(g: Game, p: PlayerState, target: PlayerState, out: Outbox
     announce(g, `${p.name} ha acusado a ${target.name} de tramar algo... y se ha equivocado.`, 'info');
   }
 }
+
+// ---------------------------------------------------------------- misiones que comprueba la casa
+// Sin botón de «¡Cumplida!»: el servidor mira el dato real en su momento (al revelar el
+// juicio, al cerrar la ronda o al ver un evento). Nadie las cobra sin cumplirlas.
+
+export type AutoEvent =
+  | { type: 'ability'; userId: string; abilityId: string; targetIds: string[]; clean?: boolean }
+  | { type: 'certify'; forgedBy: string | null }
+  | { type: 'gift'; fromId: string; toId: string }
+  | { type: 'pillado'; byId: string };
+
+interface AutoCtx {
+  g: Game;
+  m: MissionState;
+  p: PlayerState;
+  target: PlayerState | undefined;
+}
+
+interface AutoCheck {
+  /** judgment: al revelar el juicio · round_end: al cerrar la ronda · event: al verlo (se paga al cerrar la ronda) */
+  at: 'judgment' | 'round_end' | 'event';
+  /** Foto del dato al repartirla, para medir lo que pasa desde entonces */
+  base?: (p: PlayerState, target: PlayerState | undefined) => number;
+  judge?: (c: AutoCtx) => boolean;
+  onEvent?: (c: AutoCtx, e: AutoEvent) => boolean;
+}
+
+const byId = (g: Game, id: string | undefined) => g.players.find((x) => x.id === id);
+const votesOf = (g: Game, id: string | undefined) => g.vote?.tally?.find((t) => t.id === id)?.votes ?? 0;
+const touched = (p: PlayerState) => p.stats.stolenFrom + p.stats.missionsBurned;
+const cucoId = (g: Game, id: string) => {
+  const p = byId(g, id);
+  return !!p && isCuco(p);
+};
+
+export const AUTO_CHECKS: Record<string, AutoCheck> = {
+  target_suspect: { at: 'judgment', judge: ({ g, target }) => !!target && g.vote!.suspects.includes(target.id) },
+  self_not_suspect: { at: 'judgment', judge: ({ g, p }) => !g.vote!.suspects.includes(p.id) },
+  self_one_vote: { at: 'judgment', judge: ({ g, p }) => votesOf(g, p.id) === 1 },
+  self_max1: { at: 'judgment', judge: ({ g, p }) => votesOf(g, p.id) <= 1 },
+  target_votes2: { at: 'judgment', judge: ({ g, target }) => votesOf(g, target?.id) >= 2 },
+  // Diferencia relativa: no basta con ser ya más rico, hay que ganar más durante la ronda
+  richer_than_target: { at: 'round_end', base: (p, t) => p.coins - (t?.coins ?? 0), judge: ({ m, p, target }) => !!target && p.coins - target.coins > m.auto!.base },
+  untouched_round: { at: 'round_end', base: (p) => touched(p), judge: ({ m, p }) => touched(p) === m.auto!.base },
+  target_touched: { at: 'round_end', base: (_p, t) => (t ? touched(t) : 0), judge: ({ m, target }) => !!target && touched(target) > m.auto!.base },
+  target_buys: { at: 'round_end', base: (_p, t) => t?.stats.itemsBought ?? 0, judge: ({ m, target }) => !!target && target.stats.itemsBought > m.auto!.base },
+  self_no_buy: { at: 'round_end', base: (p) => p.stats.itemsBought, judge: ({ m, p }) => p.stats.itemsBought === m.auto!.base },
+  ability_on_me: { at: 'event', onEvent: ({ g, p }, e) => e.type === 'ability' && e.targetIds.includes(p.id) && !cucoId(g, e.userId) },
+  investigated_clean: { at: 'event', onEvent: ({ p }, e) => e.type === 'ability' && e.abilityId === 'investigar' && e.targetIds.includes(p.id) && e.clean === true },
+  forged_certified: { at: 'event', onEvent: ({ p }, e) => e.type === 'certify' && e.forgedBy === p.id },
+  gift_from_cuco: { at: 'event', onEvent: ({ g, p }, e) => e.type === 'gift' && e.toId === p.id && cucoId(g, e.fromId) },
+  pillado_hit: { at: 'event', onEvent: ({ p }, e) => e.type === 'pillado' && e.byId === p.id },
+};
+
+function autoState(g: Game, check: string, p: PlayerState, targets: string[]): NonNullable<MissionState['auto']> {
+  const def = AUTO_CHECKS[check];
+  if (!def) throw new Error(`Comprobación desconocida: ${check}`);
+  return { check, base: def.base?.(p, byId(g, targets[0])) ?? 0 };
+}
+
+function settleAuto(g: Game, p: PlayerState, m: MissionState, ok: boolean, out: Outbox): void {
+  if (ok) {
+    completeMission(g, p, m, out, 'La casa lo ha visto');
+    announce(g, 'La casa ha visto cumplirse una misión secreta.', 'special');
+    return;
+  }
+  m.status = 'discarded';
+  m.resolvedAt = Date.now();
+  toast(out, p.id, { text: 'La casa no lo ha visto: misión fallida', tone: 'info', private: true });
+}
+
+/** Resuelve las misiones de la casa que tocan en este momento. Las de evento cobran al
+ *  cerrar la ronda (no al instante): así un pago no señala quién hizo qué. */
+export function resolveAutoMissions(g: Game, at: 'judgment' | 'round_end', out: Outbox): void {
+  for (const m of g.missions.filter((x) => x.status === 'active' && x.auto)) {
+    const check = AUTO_CHECKS[m.auto!.check];
+    const p = byId(g, m.playerId);
+    if (!check || !p || p.left) continue;
+    if (check.at === 'event') {
+      // Las de evento viven solo su ronda: al cerrarla, con hit cobran y sin hit caen
+      if (at === 'round_end') settleAuto(g, p, m, !!m.auto!.hit, out);
+      continue;
+    }
+    if (check.at !== at) continue;
+    const target = byId(g, m.targets[0]);
+    // Si el objetivo se fue, la misión ya no tiene sentido: se cae sin pagar
+    settleAuto(g, p, m, !target?.left && check.judge!({ g, m, p, target }), out);
+  }
+}
+
+export function notifyAutoMissions(g: Game, e: AutoEvent): void {
+  for (const m of g.missions) {
+    if (m.status !== 'active' || !m.auto || m.auto.hit) continue;
+    const check = AUTO_CHECKS[m.auto.check];
+    const p = byId(g, m.playerId);
+    if (check?.at === 'event' && p && check.onEvent!({ g, m, p, target: byId(g, m.targets[0]) }, e)) m.auto.hit = true;
+  }
+}
+
+// ---------------------------------------------------------------- duelos
+// Dos jugadores reciben a la vez misiones opuestas. Ninguno sabe que el otro tiene la
+// contraria; quien ataca pone al rival como {A}, así que el rival sí puede pillarle.
+export const DUEL_TAG = 'duelo';
+
+export function dealDuel(g: Game, out: Outbox, force = false): void {
+  const active = activePlayers(g);
+  if (active.length < 4 || (!force && (g.roundIndex < 1 || !chance(DUEL_CHANCE)))) return;
+  const fits = (d: DuelDef) => !d.needsJudgment || futureJudgment(g);
+  const fresh = gameContent(g).duels.filter((d) => fits(d) && !g.missions.some((m) => m.missionId.startsWith(`duel:${d.id}:`)));
+  const pool = fresh.length ? fresh : gameContent(g).duels.filter(fits);
+  if (!pool.length) return;
+  const def = pick(pool);
+  const [a, b] = shuffle(active);
+  const give = (p: PlayerState, rival: PlayerState, side: DuelDef['attack'], key: 'attack' | 'defend') => {
+    const targets = key === 'attack' || side.targetsRival ? [rival.id] : [];
+    g.missions.push({
+      id: shortId(),
+      missionId: `duel:${def.id}:${key}`,
+      playerId: p.id,
+      text: resolveText(g, side, targets),
+      difficulty: side.difficulty,
+      category: DUEL_TAG,
+      reward: MISSION_REWARD[side.difficulty],
+      targets,
+      tags: [DUEL_TAG, ...(def.needsJudgment ? ['needs_judgment'] : [])],
+      status: 'active',
+      assignedRound: g.roundIndex,
+      resolvedAt: null,
+      auto: autoState(g, side.auto, p, targets),
+    });
+    toast(out, p.id, { text: 'Nueva misión secreta', tone: 'special', private: true, sound: 'mission' });
+  };
+  give(a, b, def.attack, 'attack');
+  give(b, a, def.defend, 'defend');
+}
+
+// ---------------------------------------------------------------- patata caliente
+// Una bomba que nadie quiere: hay que pasársela a otro antes de que acabe la ronda.
+// Pasarla delata ante quien la recibe que la tenías; no se devuelve al instante.
+export const PATATA_TAG = 'patata';
+
+export function dealPatata(g: Game, out: Outbox, force = false): void {
+  const active = activePlayers(g);
+  if (active.length < 4 || (!force && (g.roundIndex < 1 || !chance(PATATA_CHANCE)))) return;
+  if (g.missions.some((m) => m.status === 'active' && m.tags.includes(PATATA_TAG))) return;
+  const p = pick(active);
+  g.missions.push({
+    id: shortId(),
+    missionId: `patata:${g.roundIndex}`,
+    playerId: p.id,
+    text: `Patata caliente: pásasela a otra persona (dale la mano y di «patata») antes de que acabe la ronda. Quien la tenga al final paga ${PATATA_PENALTY} monedas. A quien te la pasó no se la puedes devolver.`,
+    difficulty: 'media',
+    category: PATATA_TAG,
+    reward: 0,
+    targets: [],
+    tags: [PATATA_TAG],
+    status: 'active',
+    assignedRound: g.roundIndex,
+    resolvedAt: null,
+  });
+  toast(out, p.id, { text: '🥔 Te ha tocado la patata caliente. Quítatela de encima.', tone: 'danger', private: true, sound: 'danger' });
+  announce(g, `🥔 Hay una patata caliente suelta por la casa. Quien la tenga al acabar la ronda paga ${PATATA_PENALTY} monedas.`, 'danger');
+}
+
+export function passPatata(g: Game, p: PlayerState, missionId: string, target: PlayerState, out: Outbox): void {
+  const m = g.missions.find((x) => x.id === missionId && x.playerId === p.id && x.status === 'active' && x.tags.includes(PATATA_TAG));
+  if (!m) throw new GameError('No tienes la patata');
+  if (target.id === p.id || target.left) throw new GameError('Pásasela a otra persona de la casa');
+  if (m.passedFrom === target.id) throw new GameError('No se la puedes devolver a quien te la pasó');
+  m.playerId = target.id;
+  m.passedFrom = p.id;
+  toast(out, target.id, { text: `🥔 ${p.name} te ha pasado la patata caliente. Quítatela de encima antes de que acabe la ronda.`, tone: 'danger', private: true, sound: 'danger' });
+  toast(out, p.id, { text: `🥔 Patata pasada a ${target.name}`, tone: 'safe', private: true });
+  announce(g, '🥔 La patata caliente ha cambiado de manos.', 'info');
+}
+
+/** Al cerrar la ronda, a quien tenga la patata le explota en las manos. */
+export function explodePatata(g: Game, out: Outbox): void {
+  for (const m of g.missions.filter((x) => x.status === 'active' && x.tags.includes(PATATA_TAG))) {
+    m.status = 'burned';
+    m.resolvedAt = Date.now();
+    const holder = byId(g, m.playerId);
+    if (!holder || holder.left) continue;
+    const lost = Math.min(PATATA_PENALTY, holder.coins);
+    holder.coins -= lost;
+    announce(g, `🥔 ¡BOOM! A ${holder.name} le ha explotado la patata caliente: -${lost} 🪙.`, 'danger');
+    toast(out, 'all', { text: `🥔 ¡BOOM! La patata le explota a ${holder.name}`, tone: 'danger', sound: 'danger' });
+  }
+}
+

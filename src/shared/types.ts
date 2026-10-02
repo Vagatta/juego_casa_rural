@@ -206,6 +206,12 @@ export interface MissionView {
   custom?: boolean;
   /** Misión relámpago: caduca a esta hora (ms epoch) */
   expiresAt?: number;
+  /** La casa la comprueba sola: no hay botón de «¡Cumplida!» */
+  auto?: boolean;
+  /** Patata caliente: hay que pasarla a otra persona antes de que acabe la ronda */
+  patata?: boolean;
+  /** Id de quien te pasó la patata (no se la puedes devolver) */
+  patataFrom?: string;
 }
 
 export interface ClueView {

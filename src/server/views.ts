@@ -16,7 +16,7 @@ import type {
 import { content, gameContent, getRole } from './content.ts';
 import { challengeTallies, defOf, hasActed } from './engine/challenges.ts';
 import { abilityBlocker, abilityUsesLeft, priceOf, readyKey, readyUp } from './engine/game.ts';
-import { SABOTEUR_TAG, SUSPECT_TAG } from './engine/missions.ts';
+import { PATATA_TAG, SABOTEUR_TAG, SUSPECT_TAG } from './engine/missions.ts';
 import { eligibleEvents } from './engine/events.ts';
 import { affectsCandles } from './engine/plan.ts';
 import { type Game, type PlayerState, activePlayers, isCuco, roleOf } from './engine/state.ts';
@@ -197,6 +197,9 @@ function missionsOf(g: Game, p: PlayerState): MissionView[] {
       saboteur: m.tags.includes(SABOTEUR_TAG) || undefined,
       custom: m.tags.includes('custom') || undefined,
       expiresAt: m.expiresAt,
+      auto: !!m.auto || undefined,
+      patata: m.tags.includes(PATATA_TAG) || undefined,
+      patataFrom: m.passedFrom,
     }));
 }
 

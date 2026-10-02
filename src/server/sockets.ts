@@ -39,6 +39,7 @@ const playerActionSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('ability'), targets: z.array(id).max(2) }),
   z.object({ type: z.enum(['claimMission', 'discardMission']), missionId: id }),
+  z.object({ type: z.literal('passMission'), missionId: id, targetId: id }),
   z.object({ type: z.literal('pillar'), targetId: id }),
   z.object({ type: z.literal('bet'), targetId: id, amount: z.number().int().min(1).max(100000) }),
   z.object({ type: z.literal('note'), text: z.string().max(500) }),

@@ -105,6 +105,11 @@ export interface MissionState {
   partners?: string[];
   /** Misión relámpago: caduca a esta hora (ms epoch) */
   expiresAt?: number;
+  /** Comprobada por la casa: sin botón de «¡Cumplida!». `base` es la foto del dato al
+   *  repartirla (monedas, compras…); `hit` marca un evento ya visto que se paga al cerrar la ronda. */
+  auto?: { check: string; base: number; hit?: boolean };
+  /** Patata caliente: quién te la pasó (no se puede devolver al instante) */
+  passedFrom?: string;
 }
 
 export type ClueSource = 'despensa' | 'investigar' | 'receta' | 'revelado' | 'mirilla' | 'nota' | 'chisme' | 'espejo';

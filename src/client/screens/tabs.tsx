@@ -48,11 +48,14 @@ export function MissionsTab() {
   const [pillarOpen, setPillarOpen] = useState(false);
   const [target, setTarget] = useState<string[]>([]);
   const [confirmDiscard, setConfirmDiscard] = useState<string | null>(null);
+  const [passOpen, setPassOpen] = useState<string | null>(null);
+  const [passTarget, setPassTarget] = useState<string[]>([]);
   const { active } = usePlayers();
   const me = view.me!;
   const missions = view.missions ?? [];
   const current = missions.filter((m) => m.status === 'active');
   const past = missions.filter((m) => m.status !== 'active');
+  const passOpenMission = current.find((m) => m.id === passOpen);
 
   return (
     <section className="stack" style={{ '--gap': '18px' } as React.CSSProperties}>
@@ -61,19 +64,32 @@ export function MissionsTab() {
         {current.length === 0 && <p className="muted center">Sin misiones activas. Te llegarán nuevas al empezar la ronda.</p>}
         <div className="stack stagger" style={{ '--gap': '22px' } as React.CSSProperties}>
           {current.map((m) => (
-            <article key={m.id} className={m.suspect || m.saboteur ? 'note tape note--suspect' : 'note tape'}>
+            <article key={m.id} className={m.suspect || m.saboteur || m.patata ? 'note tape note--suspect' : 'note tape'}>
               {m.suspect && <p className="note__suspect"><GIcon id="mirilla" size={13} /> Orden de la casa — estás bajo sospecha. Todos lo saben.</p>}
               {m.saboteur && <p className="note__suspect"><GIcon id="mentira" size={13} /> Orden oscura — sabotaje. Nadie más la conoce.</p>}
+              {m.patata && <p className="note__suspect"><GIcon id="relampago" size={13} /> Patata caliente — pásala antes de que acabe la ronda o pagas tú.</p>}
+              {m.auto && <p className="note__suspect"><GIcon id="mirilla" size={13} /> La casa comprueba esta misión sola — nada que pulsar.</p>}
               {m.partner && <p className="note__suspect"><GIcon id="pareja" size={13} /> {m.corro ? `Misión de corro — tus cómplices son ${m.partner}.` : `Misión en pareja — tu cómplice es ${m.partner}.`}</p>}
               {m.custom && <p className="note__suspect"><GIcon id="casa" size={13} /> Misión de la casa — la escribió vuestro anfitrión.</p>}
               {m.expiresAt && <LightningTimer endsAt={m.expiresAt} />}
               <p className="note__text">{m.text}</p>
               <div className="note__meta">
                 <span className={`diff diff--${m.difficulty}`}>{DIFF_LABEL[m.difficulty]}</span>
-                <span>+{m.reward} <GIcon id="coins" size={12} /></span>
+                {m.reward > 0 && (
+                  <span>+{m.reward} <GIcon id="coins" size={12} /></span>
+                )}
               </div>
               {m.saboteur ? (
                 <p className="muted small" style={{ marginTop: 12 }}>Se resuelve sola al acabar la prueba: solo cobras si el equipo fracasa.</p>
+              ) : m.patata ? (
+                <div style={{ marginTop: 12 }}>
+                  <p className="muted small">Dale la mano a alguien y di «patata». Ojo: quien la recibe sabrá que la tenías tú.</p>
+                  <Button small variant="danger" block disabled={busy} onClick={() => setPassOpen(m.id)}>
+                    🥔 Pasar la patata
+                  </Button>
+                </div>
+              ) : m.auto ? (
+                <p className="muted small" style={{ marginTop: 12 }}>Sin botón: la casa lo comprueba sola. Si no se cumple, se cae.</p>
               ) : (
                 <div className="row" style={{ marginTop: 12 }}>
                   <Button small variant="safe" className="grow" disabled={busy} onClick={() => run({ type: 'claimMission', missionId: m.id })}>
@@ -135,6 +151,30 @@ export function MissionsTab() {
           }}
         >
           ¡PILLADO!
+        </Button>
+        <InlineError error={error} />
+      </Sheet>
+
+      <Sheet open={!!passOpen} onClose={() => { setPassOpen(null); setPassTarget([]); }} title="¿A quién le toca la patata?">
+        <p className="muted small">Elige a quién se la pasas. Lo sabrá — pasar la patata delata que la tenías.</p>
+        <PlayerPicker
+          players={active.filter((p) => p.id !== me.id && p.id !== passOpenMission?.patataFrom)}
+          max={1}
+          selected={passTarget}
+          onChange={setPassTarget}
+        />
+        <Button
+          block
+          variant="danger"
+          disabled={busy || !passTarget.length}
+          onClick={async () => {
+            if (await run({ type: 'passMission', missionId: passOpen!, targetId: passTarget[0] })) {
+              setPassOpen(null);
+              setPassTarget([]);
+            }
+          }}
+        >
+          Pasar la patata
         </Button>
         <InlineError error={error} />
       </Sheet>

@@ -6,13 +6,13 @@ import { join } from 'node:path';
 import { content, roleById } from '../src/server/content.ts';
 import { addPlayer, advance, createGame, hostAction, leavePlayer, onPlayerOffline, playerAction, readyUp, startGame, takeOverPlayer, tick } from '../src/server/engine/game.ts';
 import { pillar } from '../src/server/engine/missions.ts';
-import { dealCoupleMission, dealCorroMission, dealMissions, discardMission, assignSaboteurMission, resolveSaboteur, SUSPECT_TAG } from '../src/server/engine/missions.ts';
+import { dealCoupleMission, dealCorroMission, dealDuel, dealMissions, dealPatata, discardMission, assignSaboteurMission, resolveSaboteur, DUEL_TAG, PATATA_TAG, SUSPECT_TAG } from '../src/server/engine/missions.ts';
 import { applyEvent } from '../src/server/engine/events.ts';
 import { computeFinale } from '../src/server/engine/finale.ts';
 import { buildPlan, affectsCandles } from '../src/server/engine/plan.ts';
 import { roleDistribution } from '../src/server/engine/roles.ts';
 import { challengeById, gameContent } from '../src/server/content.ts';
-import { AUTO_DELAY_SEC, BET_PAYOUT, GANZUA_STEAL, MARKET_DISCOUNT, SHOP_PRICES, TAKEOVER_GRACE_MS } from '../src/shared/constants.ts';
+import { AUTO_DELAY_SEC, BET_PAYOUT, GANZUA_STEAL, MARKET_DISCOUNT, PATATA_PENALTY, SHOP_PRICES, TAKEOVER_GRACE_MS } from '../src/shared/constants.ts';
 import { finalizeChallenge, setupChallenge } from '../src/server/engine/challenges.ts';
 import { priceOf } from '../src/server/engine/game.ts';
 import { getPlayer, newOutbox, type Game, type PlayerState } from '../src/server/engine/state.ts';
@@ -1228,4 +1228,160 @@ test('abstención en el juicio y Cuco Sonámbulo', () => {
     assert.ok(!roleDistribution(5).includes('cuco_sonambulo'), 'un Cuco solitario no es Sonámbulo');
     assert.ok(!roleDistribution(9, false).includes('cuco_sonambulo'), 'sin juicios no hay Sonámbulo');
   }
+});
+
+test('misiones que comprueba la casa: juicio, ronda y eventos', () => {
+  const settings: GameSettings = { durationMin: 60, difficulty: 'normal', mode: 'clasico', expectedPlayers: 6, hostPlays: true };
+  const g: Game = createGame('TEST8', settings);
+  const ps = ['Ana', 'Carlos', 'Diego', 'Laura', 'Marcos', 'Marta'].map((n) => addPlayer(g, n, '🐓'));
+  const [ana, carlos, diego, laura, marcos] = ps;
+  laura.roleId = 'cuco_falsificador';
+  for (const p of ps) p.roleId ??= 'curioso';
+  const out = newOutbox();
+  g.plan = buildPlan(settings, 6);
+  g.roundIndex = 1;
+  g.cucoCount = 1;
+  g.phase = 'INVESTIGATION';
+
+  // ---- Auto de juicio: cobra solo si el objetivo queda bajo sospecha de verdad
+  g.missions.push({
+    id: 'auto1', missionId: 'm197', playerId: ana.id,
+    text: 'test', difficulty: 'media', category: 'engano', reward: 80,
+    targets: [carlos.id], tags: [], status: 'active', assignedRound: 1, resolvedAt: null,
+    auto: { check: 'target_suspect', base: 0 },
+  });
+  const mAuto = g.missions.at(-1)!;
+  assert.throws(() => playerAction(g, ana, { type: 'claimMission', missionId: mAuto.id }, out, true), /casa|comprueba/i, 'sin botón: la casa la verifica sola');
+
+  g.phase = 'VOTING';
+  g.vote = { kind: 'juicio', status: 'open', picks: 1, isPublic: false, voters: ps.map((p) => p.id), ballots: {}, weights: {}, tally: null, suspects: [], bets: {} };
+  for (const p of ps) playerAction(g, p, { type: 'vote', targets: p.id === carlos.id ? [] : [carlos.id] }, out, true);
+  assert.equal(g.vote!.status, 'revealed');
+  assert.equal(mAuto.status, 'completed', 'Carlos quedó bajo sospecha: la casa paga');
+
+  // ---- Auto de juicio fallida: el objetivo no quedó señalado
+  g.missions.push({
+    id: 'auto2', missionId: 'm197', playerId: diego.id,
+    text: 'test', difficulty: 'media', category: 'engano', reward: 80,
+    targets: [marcos.id], tags: [], status: 'active', assignedRound: 1, resolvedAt: null,
+    auto: { check: 'target_suspect', base: 0 },
+  });
+  const mFail = g.missions.at(-1)!;
+  // El juicio ya se reveló: una de juicio repartida después cae al cerrar la ronda…
+  // en realidad no se repartiría (futureJudgment), así que la forzamos y comprobamos
+  // que el siguiente juicio la evalúa con datos nuevos, no con este.
+
+  // ---- Auto de ronda: más monedas que el objetivo al cerrar
+  marcos.coins = 100;
+  diego.coins = 100;
+  g.missions.push({
+    id: 'auto3', missionId: 'm198', playerId: diego.id,
+    text: 'test', difficulty: 'media', category: 'monedas', reward: 50,
+    targets: [marcos.id], tags: [], status: 'active', assignedRound: 1, resolvedAt: null,
+    auto: { check: 'richer_than_target', base: 0 },
+  });
+  const mCoins = g.missions.at(-1)!;
+
+  // ---- Auto de evento: un Cuco le regala monedas con sobre (Diego es huésped)
+  g.missions.push({
+    id: 'auto4', missionId: 'm208', playerId: diego.id,
+    text: 'test', difficulty: 'media', category: 'monedas', reward: 50,
+    targets: [], tags: [], status: 'active', assignedRound: 1, resolvedAt: null,
+    auto: { check: 'gift_from_cuco', base: 0 },
+  });
+  const mGift = g.missions.at(-1)!;
+
+  g.phase = 'INVESTIGATION';
+  g.vote = null;
+  laura.coins = 60;
+  playerAction(g, laura, { type: 'buy', item: 'sobre', targetId: diego.id, amount: 20 }, out, true);
+  assert.equal(mGift.auto!.hit, true, 'el sobre del Cuco marca el evento');
+
+  // Diego se enriquece en la ronda: 110 > Marcos (100)
+  diego.coins += 10;
+  const diegoBefore = diego.coins;
+
+  // Segundo juicio de la ronda (directo, sin depender del plan): evalúa con datos nuevos
+  g.phase = 'VOTING';
+  g.vote = { kind: 'juicio', status: 'open', picks: 1, isPublic: false, voters: ps.map((p) => p.id), ballots: {}, weights: {}, tally: null, suspects: [], bets: {} };
+  for (const p of ps) playerAction(g, p, { type: 'vote', targets: p.id === ana.id ? [] : [ana.id] }, out, true); // Ana sospechosa
+  assert.equal(mFail.status, 'discarded', 'Marcos no quedó señalado: misión fallida');
+  advance(g, out); // VOTING revelado → ROUND_RESULT cierra la ronda
+  assert.equal(g.phase, 'ROUND_RESULT');
+  assert.equal(mCoins.status, 'completed', 'Diego acabó la ronda más rico que Marcos');
+  assert.equal(mGift.status, 'completed', 'el sobre del Cuco se cobra al cerrar');
+  assert.ok(diego.coins > diegoBefore, 'las dos misiones auto han pagado');
+});
+
+test('duelo de misiones y patata caliente', () => {
+  const settings: GameSettings = { durationMin: 60, difficulty: 'normal', mode: 'clasico', expectedPlayers: 6, hostPlays: true };
+  const g: Game = createGame('TEST9', settings);
+  const ps = ['Ana', 'Carlos', 'Diego', 'Laura', 'Marcos', 'Marta'].map((n) => addPlayer(g, n, '🐓'));
+  const [ana, carlos] = ps;
+  for (const p of ps) p.roleId ??= 'curioso';
+  const out = newOutbox();
+  g.plan = buildPlan(settings, 6);
+  g.roundIndex = 1;
+  g.cucoCount = 1;
+  g.phase = 'INVESTIGATION';
+
+  // ---- Duelo forzado: dos jugadores, misiones opuestas, ninguno sabe del otro
+  dealDuel(g, out, true);
+  const duelMissions = g.missions.filter((m) => m.tags.includes(DUEL_TAG));
+  assert.equal(duelMissions.length, 2);
+  const [mA, mB] = duelMissions;
+  assert.notEqual(mA.playerId, mB.playerId);
+  const holder = (m: typeof mA) => getPlayer(g, m.playerId);
+  assert.ok(duelMissions.every((m) => m.auto), 'las dos mitades las comprueba la casa');
+  // Al menos una mitad apunta al rival como {A}: esa se puede pillar
+  const attacker = duelMissions.find((m) => m.targets.includes(rivalOf(mA).id) || m.targets.includes(rivalOf(mB).id))!;
+  const defender = duelMissions.find((m) => m !== attacker)!;
+  function rivalOf(m: typeof mA): PlayerState {
+    return getPlayer(g, m === mA ? mB.playerId : mA.playerId);
+  }
+  assert.ok(attacker.targets.includes(holder(defender).id));
+  // ¡PILLADO! del defensor quema la misión del atacante
+  pillar(g, holder(defender), holder(attacker), out);
+  assert.equal(attacker.status, 'burned', 'el rival le ha pillado con la misión en la mano');
+
+  // ---- Patata caliente: se pasa, no se devuelve, explota al cerrar
+  dealPatata(g, out, true);
+  const patata = g.missions.find((m) => m.tags.includes(PATATA_TAG) && m.status === 'active')!;
+  assert.ok(patata, 'la casa reparte la patata');
+  const p1 = getPlayer(g, patata.playerId);
+  p1.coins = 80;
+  // Paso válido
+  playerAction(g, p1, { type: 'passMission', missionId: patata.id, targetId: carlos.id }, out, true);
+  assert.equal(patata.playerId, carlos.id);
+  assert.equal(patata.passedFrom, p1.id);
+  // No se devuelve al instante
+  assert.throws(
+    () => playerAction(g, carlos, { type: 'passMission', missionId: patata.id, targetId: p1.id }, out, true),
+    /devolver/,
+  );
+  // Pero sí a una tercera persona (que no sea quien se la dio)
+  const third = ps.find((x) => x.id !== carlos.id && x.id !== p1.id)!;
+  playerAction(g, carlos, { type: 'passMission', missionId: patata.id, targetId: third.id }, out, true);
+  assert.equal(patata.playerId, third.id);
+  // Y esa tercera sí puede devolvérsela a quien la soltó primero (pasó por otra mano)
+  playerAction(g, third, { type: 'passMission', missionId: patata.id, targetId: p1.id }, out, true);
+  assert.equal(patata.playerId, p1.id);
+  p1.coins = 100;
+  // No se reclama ni se descarta
+  assert.throws(() => playerAction(g, p1, { type: 'claimMission', missionId: patata.id }, out, true), /pasa/i);
+  assert.throws(() => discardMission(g, p1, patata.id), /pasa/i);
+  // Explota al cerrar la ronda en manos del portador final
+  g.phase = 'INVESTIGATION';
+  g.roundIndex = 0; // ronda 1 del plan no tiene juicio: cierra directo
+  advance(g, out);
+  assert.equal(g.phase, 'ROUND_RESULT');
+  assert.equal(patata.status, 'burned');
+  assert.equal(p1.coins, 100 - PATATA_PENALTY, 'la patata cobra el sablazo');
+  assert.ok(g.announcements.some((a) => a.text.includes('patata')), 'la casa lo cuenta en voz alta');
+
+  // La proyección no chiva la patata quemada a otros: solo el dueño la ve
+  const view = buildView(g, { audience: 'player', playerId: carlos.id, isHost: false, hostOnline: true });
+  assert.ok(!view.missions!.some((m) => m.id === patata.id), 'Carlos no ve la patata del portador');
+  const ownView = buildView(g, { audience: 'player', playerId: p1.id, isHost: false, hostOnline: true });
+  assert.ok(ownView.missions!.some((m) => m.id === patata.id && m.patata), 'el portador sí ve su patata quemada');
 });

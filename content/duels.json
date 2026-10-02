@@ -1,0 +1,29 @@
+[
+  {
+    "id": "d01",
+    "needsJudgment": true,
+    "attack": { "text": "Consigue que {A} quede bajo sospecha en el próximo juicio.", "auto": "target_suspect", "difficulty": "dificil" },
+    "defend": { "text": "Alguien de la casa quiere verte bajo sospecha. Llega al próximo juicio sin que te señalen.", "auto": "self_not_suspect", "difficulty": "media" }
+  },
+  {
+    "id": "d02",
+    "needsJudgment": true,
+    "attack": { "text": "Consigue que {A} reciba al menos dos votos en el próximo juicio.", "auto": "target_votes2", "difficulty": "dificil" },
+    "defend": { "text": "Alguien quiere que te voten. Que en el próximo juicio te caiga como mucho un voto.", "auto": "self_max1", "difficulty": "media" }
+  },
+  {
+    "id": "d03",
+    "attack": { "text": "Gana esta ronda más monedas que {A}. Pase lo que pase.", "auto": "richer_than_target", "difficulty": "media", "targetsRival": true },
+    "defend": { "text": "Gana esta ronda más monedas que {A}. Pase lo que pase.", "auto": "richer_than_target", "difficulty": "media", "targetsRival": true }
+  },
+  {
+    "id": "d04",
+    "attack": { "text": "Consigue que {A} compre algo en la Despensa esta ronda.", "auto": "target_buys", "difficulty": "media" },
+    "defend": { "text": "Alguien quiere que pases por caja. No compres nada en la Despensa esta ronda.", "auto": "self_no_buy", "difficulty": "facil" }
+  },
+  {
+    "id": "d05",
+    "attack": { "text": "Que a {A} le roben o le pillen esta ronda. Tú decides cómo.", "auto": "target_touched", "difficulty": "dificil" },
+    "defend": { "text": "Alguien te tiene ganas. Que nadie te robe ni te pille en lo que queda de ronda.", "auto": "untouched_round", "difficulty": "media" }
+  }
+]
