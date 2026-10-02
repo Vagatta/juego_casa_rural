@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { content, roleById } from '../src/server/content.ts';
-import { addPlayer, advance, createGame, hostAction, playerAction, startGame, tick } from '../src/server/engine/game.ts';
+import { addPlayer, advance, createGame, hostAction, leavePlayer, onPlayerOffline, playerAction, readyUp, startGame, tick } from '../src/server/engine/game.ts';
 import { pillar } from '../src/server/engine/missions.ts';
 import { dealCoupleMission, dealCorroMission, dealMissions, discardMission, assignSaboteurMission, resolveSaboteur, SUSPECT_TAG } from '../src/server/engine/missions.ts';
 import { applyEvent } from '../src/server/engine/events.ts';
@@ -804,4 +804,91 @@ test('misión de corro: tres cómplices, misma tarea', () => {
     assert.equal(m.partners!.length, 2, 'cada uno conoce a sus dos cómplices');
     assert.deepEqual(new Set([m.playerId, ...m.partners!]), new Set(corro.map((x) => x.playerId)), 'el corro se cierra entre los tres');
   }
+});
+
+test('el apagón: la TV se apaga 30 segundos y vuelve sola', () => {
+  const g: Game = createGame('TESTF', { durationMin: 60, difficulty: 'normal', mode: 'clasico', expectedPlayers: 6, hostPlays: true });
+  for (const n of ['Ana', 'Carlos', 'Diego', 'Laura', 'Marcos', 'Marta']) addPlayer(g, n, '🐓');
+  const out = newOutbox();
+  g.roundIndex = 1;
+  g.phase = 'INVESTIGATION';
+
+  applyEvent(g, 'e59', out);
+  assert.ok(g.event, 'el evento queda activo');
+  assert.ok(g.event!.endsAt! > Date.now(), 'es un evento cronometrado');
+  assert.ok(g.event!.endsAt! <= Date.now() + 31_000, 'dura lo que dice el contenido (30s)');
+  assert.equal(gameContent(g).eventById.get('e59')!.effect.type, 'blackout', 'la TV lo reconoce como apagón');
+
+  // Pasada la media hora... perdón, los 30 segundos, la casa vuelve sola
+  tick(g, out, g.event!.endsAt! + 1);
+  assert.equal(g.event!.endsAt, null, 'el apagón se acaba sin que nadie toque nada');
+  assert.equal(g.phase, 'INVESTIGATION', 'el juego nunca se detuvo — solo la pantalla');
+});
+
+test('estamos listos: la espera salta cuando lo confirma todo el mundo', () => {
+  const g: Game = createGame('TESTG', { durationMin: 60, difficulty: 'normal', mode: 'clasico', expectedPlayers: 6, hostPlays: true });
+  const ps = ['Ana', 'Carlos', 'Diego', 'Laura', 'Marcos', 'Marta'].map((n) => addPlayer(g, n, '🐓'));
+  const [ana, carlos, diego, laura, marcos, marta] = ps;
+  for (const p of ps) { p.roleId = 'vecino'; p.connected = true; }
+  const out = newOutbox();
+  g.plan = buildPlan({ durationMin: 60, difficulty: 'normal', mode: 'clasico', expectedPlayers: 6, hostPlays: true }, 6);
+  g.roundIndex = 0;
+  g.phase = 'ROUND_INTRO';
+
+  // Uno que falta frena a todos: la unanimidad es de verdad
+  assert.ok(readyUp(g), 'la intro de ronda es una espera confirmable');
+  for (const p of ps.slice(0, 5)) playerAction(g, p, { type: 'ready' }, out, true);
+  assert.equal(g.phase, 'ROUND_INTRO', 'con una silla sin confirmar la casa espera');
+  assert.equal(readyUp(g)!.count, 5);
+
+  playerAction(g, marta, { type: 'ready' }, out, true);
+  assert.equal(g.phase, 'CHALLENGE', 'todos listos → la espera salta sola');
+
+  // Las marcas son por momento: las de la intro no valen para el briefing
+  assert.equal(g.challenge!.status, 'briefing');
+  assert.equal(readyUp(g)!.count, 0, 'cada espera pide su propia confirmación');
+
+  // briefing → running: mismo salto colectivo
+  for (const p of ps) playerAction(g, p, { type: 'ready' }, out, true);
+  assert.equal(g.challenge!.status, 'running', 'nadie espera al director para empezar a jugar');
+
+  // Durante el juego real no hay botón: las pruebas tienen su propio cierre
+  assert.equal(readyUp(g), null);
+  assert.throws(() => playerAction(g, ana, { type: 'ready' }, out, true), /nada que confirmar/i);
+
+  // El juicio abierto exige votos, no confirmaciones — el "listos" no lo esquiva
+  g.challenge = null;
+  g.phase = 'VOTING';
+  g.vote = { kind: 'juicio', status: 'open', picks: 1, isPublic: false, voters: ps.map((p) => p.id), ballots: {}, weights: {}, tally: null, suspects: [], bets: {} };
+  assert.throws(() => playerAction(g, ana, { type: 'ready' }, out, true), /nada que confirmar/i, 'la votación no se salta: hay que votar');
+
+  // Votación revelada → espera al director otra vez. Marcos se cae: no cuenta
+  // para el quórum, pero Marta (conectada y sin pulsar) sí retiene a la casa.
+  g.vote.status = 'revealed';
+  marcos.connected = false;
+  for (const p of ps) if (p.id !== marta.id && p.id !== marcos.id) playerAction(g, p, { type: 'ready' }, out, true);
+  assert.equal(g.phase, 'VOTING', 'Marta sigue ahí sin confirmar: la casa espera');
+  assert.equal(readyUp(g)!.total, 5, 'Marcos caído no cuenta en el total');
+  playerAction(g, marta, { type: 'ready' }, out, true);
+  assert.equal(g.phase, 'ROUND_RESULT', 'con Marta ya es unanimidad entre los presentes');
+
+  // En el resumen de la ronda, quien se va desbloquea la unanimidad
+  g.roundIndex = 1;
+  g.phase = 'ROUND_RESULT';
+  for (const p of ps) p.connected = true;
+  for (const p of ps.slice(0, 5)) playerAction(g, p, { type: 'ready' }, out, true);
+  assert.equal(g.phase, 'ROUND_RESULT', 'Marta aún no ha pulsado');
+  leavePlayer(g, marta, out);
+  assert.ok(marta.left);
+  assert.equal(g.phase, 'ROUND_INTRO', 'al marcharse, la casa ya estaba lista y avanza sola');
+  assert.equal(g.roundIndex, 2);
+
+  // Una desconexión repentina también reevalúa: Laura conectada sin pulsar
+  // retiene la espera; al caérsele el móvil, los presentes ya eran unanimidad.
+  g.phase = 'ROUND_RESULT';
+  for (const p of ps) if (![laura.id, marta.id].includes(p.id)) playerAction(g, p, { type: 'ready' }, out, true);
+  assert.equal(g.phase, 'ROUND_RESULT', 'Laura conectada sin pulsar retiene la espera');
+  laura.connected = false;
+  onPlayerOffline(g, out);
+  assert.equal(g.phase, 'ROUND_INTRO', 'al caer Laura, los presentes ya habían dicho que sí');
 });

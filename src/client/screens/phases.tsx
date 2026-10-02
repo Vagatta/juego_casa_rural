@@ -36,9 +36,33 @@ export function NowTab({ goTo }: { goTo: GoTo }) {
       {view.event?.endsAt && <EventBanner />}
       <AuctionCard />
       <PhaseBody goTo={goTo} />
+      <ReadyBar />
       <BlindPrediction />
       <SuspectLetter />
       <ReactionBar />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------- «estamos listos»
+
+/** En las esperas (intro, briefings, juicio revelado...) cualquiera puede pulsar
+ *  "estoy listo"; cuando todos lo hacen, la fase salta sin esperar al director. */
+function ReadyBar() {
+  const { view } = useGame();
+  const { run, busy } = useAction();
+  const up = view.readyUp;
+  const me = view.me;
+  if (!up || !me || me.left) return null;
+  return (
+    <div className="readyup">
+      {up.mine ? (
+        <p className="muted center">Esperando al resto — {up.count} de {up.total} listos</p>
+      ) : (
+        <Button block variant="ghost" disabled={busy} onClick={() => run({ type: 'ready' })}>
+          Estoy listo · {up.count}/{up.total}
+        </Button>
+      )}
     </div>
   );
 }

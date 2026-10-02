@@ -1,7 +1,7 @@
 {
-  "palabras": ["casa", "chorizo", "misterio", "vaca", "abuela", "fantasma", "tortilla", "botijo", "chimenea", "gallina", "sospechoso", "cerveza", "pueblo", "mentira", "vela", "tractor", "croqueta", "secreto", "leña", "jamón", "llave", "manta", "siesta", "verbena", "tinaja", "candil", "almiar", "vereda", "trillo", "lagar", "lucerito", "desván", "chismoso", "aldeano", "pócima", "despensa", "cerilla", "establo"],
-  "objetos": ["un cojín", "una cuchara", "un vaso", "una zapatilla", "una manta", "el mando de la tele", "un calcetín", "una servilleta", "una piña", "un tenedor", "una botella vacía", "un libro", "una taza", "un trapo de cocina", "una naranja", "un mechero", "un capazo", "una caja de cerillas", "un pañuelo", "una jarra", "un sombrero", "una cuerda", "un trozo de carbón", "una escalera de mano", "un barreño", "un azadón de juguete"],
-  "expresiones": ["a mí plin", "de categoría", "madre mía", "ojo cuidao", "qué barbaridad", "ni tan mal", "esto es un escándalo", "me parto", "vaya tela", "qué me estás contando", "más perdido que un pulpo en un garaje", "hablar hasta por los codos", "más pesado que una vaca en brazos", "quedarse más ancho que largo", "aquí no ha pasado nada", "eso me huele a chamusquina", "menos lobos"],
+  "palabras": ["casa", "chorizo", "misterio", "vaca", "abuela", "fantasma", "tortilla", "botijo", "chimenea", "gallina", "sospechoso", "cerveza", "pueblo", "mentira", "vela", "tractor", "croqueta", "secreto", "leña", "jamón", "llave", "manta", "siesta", "verbena", "tinaja", "candil", "almiar", "vereda", "trillo", "lagar", "lucerito", "desván", "chismoso", "aldeano", "pócima", "despensa", "cerilla", "establo", "pajar", "noria", "molino", "dehesa", "viga", "carcoma", "sendero", "abrigo", "brezo", "madroño", "chamusquina", "sereno"],
+  "objetos": ["un cojín", "una cuchara", "un vaso", "una zapatilla", "una manta", "el mando de la tele", "un calcetín", "una servilleta", "una piña", "un tenedor", "una botella vacía", "un libro", "una taza", "un trapo de cocina", "una naranja", "un mechero", "un capazo", "una caja de cerillas", "un pañuelo", "una jarra", "un sombrero", "una cuerda", "un trozo de carbón", "una escalera de mano", "un barreño", "un azadón de juguete", "una escoba", "un cencerro", "una fiambrera", "un colador", "una pala de barbacoa", "una orza", "un mantel de cuadros", "una lima de uñas"],
+  "expresiones": ["a mí plin", "de categoría", "madre mía", "ojo cuidao", "qué barbaridad", "ni tan mal", "esto es un escándalo", "me parto", "vaya tela", "qué me estás contando", "más perdido que un pulpo en un garaje", "hablar hasta por los codos", "más pesado que una vaca en brazos", "quedarse más ancho que largo", "aquí no ha pasado nada", "eso me huele a chamusquina", "menos lobos", "estar hecho un pincel", "más sabe el diablo", "a otro perro con ese hueso", "estar en las nubes", "se me va la pinza"],
   "impostor": [
     ["tortilla", "paella"], ["chimenea", "barbacoa"], ["gallina", "pato"], ["tractor", "cosechadora"],
     ["vino", "cerveza"], ["siesta", "resaca"], ["piscina", "río"], ["jamón", "chorizo"],
@@ -14,6 +14,9 @@
     ["hoz", "guadaña"], ["granero", "pajar"], ["corral", "huerto"],
     ["sillón", "butaca"], ["almanaque", "calendario"], ["tinaja", "barrica"], ["zorro", "gallinero"],
     ["gato", "zorro"], ["alhaja", "tesoro"], ["farolillo", "candil"], ["corzo", "ciervo"],
-    ["cencerro", "cascabel"], ["establo", "cuadra"]
+    ["cencerro", "cascabel"], ["establo", "cuadra"],
+    ["odre", "bota"], ["almirez", "mortero"], ["romería", "peregrinación"], ["pilón", "bebedero"],
+    ["pincho", "tapa"], ["porrón", "jarra"], ["caracol", "babosa"], ["higo", "breva"],
+    ["gavilla", "haz"], ["almazara", "lagar"]
   ]
 }

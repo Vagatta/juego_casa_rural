@@ -29,5 +29,11 @@
   { "id": "corro_ronda", "text": "Los tres: pasead por la casa en fila india, uno detrás de otro, sin explicar nada. Haced al menos una vuelta completa a la sala.", "trio": true },
   { "id": "corro_brindis", "text": "Los tres: brindad a la vez diciendo «por la casa» exactamente al mismo tiempo. Si os desincronizáis, repetidlo hasta que suene limpio.", "trio": true },
   { "id": "corro_silencio", "text": "Los tres: guardad silencio absoluto mirándoos durante 20 segundos en medio del salón. El primero que ría, paga una ronda de vergüenza.", "trio": true },
-  { "id": "corro_testigo", "text": "Los tres: conseguid que {A} se una a vuestro corro como si tal cosa. Cuando lo consigáis, los tres tenéis que suspirar al unísono.", "trio": true }
+  { "id": "corro_testigo", "text": "Los tres: conseguid que {A} se una a vuestro corro como si tal cosa. Cuando lo consigáis, los tres tenéis que suspirar al unísono.", "trio": true },
+  { "id": "camareros", "text": "Servid a alguien algo de beber entre los dos: uno lleva el vaso, el otro lo llena. Sin comentarlo en voz alta." },
+  { "id": "retrato", "text": "Conseguid que alguien os haga una foto juntos. Posad como si fuera un retrato de boda antigua." },
+  { "id": "corro_aplauso", "text": "Los tres: cada vez que alguien diga «casa» o «vela», aplaudid al unísono una sola vez, mirándoos. Mínimo tres veces esta ronda.", "trio": true },
+  { "id": "corro_fila", "text": "Los tres: pasead por la casa en fila india; el último solo puede responder «sí» a lo que le pregunten.", "trio": true },
+  { "id": "corro_susurro", "text": "Los tres: acercaos a alguien y susurrad a la vez «pasillos». Luego separaos como si no os conocierais.", "trio": true },
+  { "id": "corro_guardia", "text": "Los tres: colocaos en triángulo alrededor de {A} sin decirle por qué. Si pregunta, respondéis «decoración».", "trio": true }
 ]

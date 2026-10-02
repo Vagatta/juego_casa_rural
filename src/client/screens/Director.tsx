@@ -61,6 +61,7 @@ function DirectorApp() {
   return (
     <main className={`director ${panel ? '' : 'director--tv'}`}>
       <div className="director__stage">
+        {view.event?.blackout && view.event.endsAt && <BlackoutOverlay endsAt={view.event.endsAt} />}
         <div className="director__bar">
           <span className="display director__brand"><GIcon id="casa" size={20} /> La Casa Rural</span>
           <span className="chip">Casa {view.code}</span>
@@ -90,6 +91,18 @@ function DirectorApp() {
         </aside>
       )}
     </main>
+  );
+}
+
+/** El apagón: la pantalla de la casa se apaga del todo. Solo queda una brasa
+ *  parpadeando — lo que pase en la habitación, la tele no lo ve. */
+function BlackoutOverlay({ endsAt }: { endsAt: number }) {
+  return (
+    <div className="blackout" role="status" aria-label="Apagón: la casa se ha quedado a oscuras">
+      <span className="blackout__ember" aria-hidden>🔥</span>
+      <span className="blackout__hint">La casa se quedó a oscuras</span>
+      <Timer endsAt={endsAt} />
+    </div>
   );
 }
 

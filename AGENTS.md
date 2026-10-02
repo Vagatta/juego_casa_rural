@@ -31,5 +31,7 @@ Party game presencial para 6–12 jugadores. Los móviles son controladores con 
 - Espectador: `/ver/CODE` con token literal `spectator` → `audience: 'player'` + `playerId: null` (vista pública, sin `me`). Sigue la revancha.
 - Apuestas: `bet` solo en FINAL_ACCUSATION con voto abierto, una por jugador, se cobra al instante, paga `BET_PAYOUT`× al acertar Cuco; `vote.bets` es interno — la vista solo expone `betsCount` + `myBet`; el detalle sale en `finale.bets`.
 - Cuaderno: `note` guarda `p.notes` (500 chars) en el servidor, proyectado solo en `me.notes`.
+- «Estamos listos»: `p.readyFor` marca la espera actual (clave fase:ronda:subestado vía `readyKey`). Cuando todos los activos **conectados** la han pulsado, `advance` salta solo. Solo existe en esperas de director/timer (intro, briefing/done de prueba, ritual revelado, investigación, juicio revelado, resumen, acusación) — nunca durante inputs reales ni arbitrajes, y no en pausa.
+- El apagón: evento `blackout` cronometrado (`e59`, 30 s). Solo escenografía: `g.event.endsAt` manda, la TV proyecta `event.blackout` y el Director pinta un overlay negro a pantalla completa. No toca estado de juego.
 - CSS: variables y utilidades propias (`base.css`, `components.css`, `screens.css`). Fuentes: Big Shoulders Stencil (display), Figtree Variable (UI), Caveat (manuscrita). Fontsource se importa sin `.css` en el specifier (`@fontsource/pkg/700`) por su `exports` map.
 - Animación solo con transform/opacity; respeta `prefers-reduced-motion`; móvil vertical desde 320px.

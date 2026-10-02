@@ -108,5 +108,13 @@
   { "id": "c76", "kind": "physical", "category": "fisica", "title": "Relevos de la despensa", "participants": "team", "scoring": "passfail", "durationSec": 120, "reward": 45, "params": {},
     "instructions": "El equipo pasa un objeto de mano en mano por toda la cadena sin que toque el suelo, usando solo una mano cada uno. Si cae, al principio." },
   { "id": "c77", "kind": "social_vote", "category": "social", "title": "¿Quién haría de Cuco?", "participants": "all", "scoring": "passfail", "durationSec": 60, "reward": 20, "params": {},
-    "instructions": "Votad quién de la casa haría el mejor Cuco de la historia. El más votado debe defenderse con una frase. Prueba superada si la sala se lo cree." }
+    "instructions": "Votad quién de la casa haría el mejor Cuco de la historia. El más votado debe defenderse con una frase. Prueba superada si la sala se lo cree." },
+  { "id": "c78", "kind": "physical", "category": "fisica", "title": "La cadena de la huerta", "participants": "team", "scoring": "passfail", "durationSec": 120, "reward": 45, "params": {},
+    "instructions": "El equipo pasa una naranja o un cojín por la fila completa sin usar las manos: solo barbilla, codo u hombro. Si toca el suelo, vuelve al principio." },
+  { "id": "c79", "kind": "word_impostor", "category": "mentira", "title": "El Infiltrado: verbena", "participants": "all", "scoring": "passfail", "durationSec": 150, "reward": 25, "params": {},
+    "instructions": "Todos reciben una palabra menos el Infiltrado, que recibe una parecida. Describidla cada uno con una SOLA palabra y votad al infiltrado al final." },
+  { "id": "c80", "kind": "interrogatorio", "category": "social", "title": "El banquillo", "participants": "all", "scoring": "passfail", "durationSec": 120, "reward": 25, "params": {},
+    "instructions": "Un voluntario se sienta en el banquillo y la casa le hace estas tres preguntas. Si responde sin romperse ni contradecirse, la prueba es suya." },
+  { "id": "c81", "kind": "physical", "category": "social", "title": "El duelo de la servilleta", "participants": "duel", "scoring": "winner", "durationSec": 90, "reward": 50, "params": {},
+    "instructions": "Una servilleta o papel doblado sobre la mesa, una mano a la espalda de cada uno. A la de tres, quien la coja primero marca un punto. Mejor de tres." }
 ]

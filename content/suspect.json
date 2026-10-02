@@ -38,5 +38,13 @@
   { "id": "espejo2", "text": "Copia los gestos de {A} durante un minuto. Si te descubre, ríete y para... veinte segundos." },
   { "id": "comisario", "text": "Apunta en un papel «evidencias» cada vez que alguien diga «Cuco». Que te vean escribir." },
   { "id": "eco", "text": "Repite la última palabra de cualquier frase que oigas, en voz muy bajita, tres veces." },
-  { "id": "traductor", "text": "Traduce algo que diga {A} al resto: «lo que quiere decir es…». Inventa la mitad." }
+  { "id": "traductor", "text": "Traduce algo que diga {A} al resto: «lo que quiere decir es…». Inventa la mitad." },
+  { "id": "peregrino", "text": "Camina por la sala como si fuera una procesión: despacio, manos juntas, mirando el suelo. Un minuto entero." },
+  { "id": "parte", "text": "Narra en voz baja lo que pasa como si fuera un parte meteorológico: «a las nueve y doce, tres personas miraron la vela»." },
+  { "id": "pañuelo", "text": "Ponte un pañuelo o una servilleta en la cabeza. Si preguntan, responde solo: «me lo encontré»." },
+  { "id": "tolo", "text": "Acércate a {A} y dile «lo sé todo». Cuando pregunte qué, niega con la cabeza y márchate." },
+  { "id": "contador", "text": "Cuenta en voz alta cada vez que alguien mire su móvil: «ya van cinco». Sin explicar qué cuentas." },
+  { "id": "ovacion", "text": "Aplaude despacio cada vez que {A} termine una frase. Solo a {A}." },
+  { "id": "muñeca", "text": "Consulta un reloj invisible en tu muñeca cada vez que alguien diga tu nombre." },
+  { "id": "risilla", "text": "Cada vez que alguien diga «voto» o «votar», ríete por lo bajo mirando al suelo." }
 ]

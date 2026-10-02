@@ -73,5 +73,22 @@
   { "id": "q72", "tag": "calculo", "q": "Si repartes 60 monedas entre 6 jugadores y luego das 10 más a cada uno, ¿cuántas tiene cada uno?", "options": ["20", "16", "25", "10"], "answer": 0 },
   { "id": "q73", "tag": "cultura", "q": "¿Qué se celebra el día de San Silvestre?", "options": ["Nochevieja", "Navidad", "San Valentín", "Los Reyes Magos"], "answer": 0 },
   { "id": "q74", "tag": "cultura", "q": "¿Cuál es la capital de Castilla y León?", "options": ["No tiene capital oficial", "Valladolid", "Salamanca", "Burgos"], "answer": 0 },
-  { "id": "q75", "tag": "cultura", "q": "¿Qué instrumento tiene 6 cuerdas y suele sonar en las verbenas?", "options": ["La guitarra", "El violín", "La bandurria", "El acordeón"], "answer": 0 }
+  { "id": "q75", "tag": "cultura", "q": "¿Qué instrumento tiene 6 cuerdas y suele sonar en las verbenas?", "options": ["La guitarra", "El violín", "La bandurria", "El acordeón"], "answer": 0 },
+  { "id": "q76", "tag": "acertijo", "q": "Tengo ciudades pero no casas, montañas pero no árboles, ríos pero no agua. ¿Qué soy?", "options": ["Un sueño", "Un mapa", "Un espejo", "Un cuento"], "answer": 1 },
+  { "id": "q77", "tag": "acertijo", "q": "Te sigue toda la noche y desaparece con la luz. ¿Qué es?", "options": ["El sueño", "Un Cuco", "La sombra", "El eco"], "answer": 2 },
+  { "id": "q78", "tag": "acertijo", "q": "El que lo hace no lo quiere, el que lo compra no lo necesita y el que lo usa no lo ve. ¿Qué es?", "options": ["Un seguro", "Un ataúd", "Un regalo", "Un paraguas"], "answer": 1 },
+  { "id": "q79", "tag": "acertijo", "q": "Camina a cuatro patas de mañana, a dos al mediodía y a tres por la noche. ¿Qué es?", "options": ["Un perro viejo", "Una mesa coja", "El ser humano", "Un borracho"], "answer": 2 },
+  { "id": "q80", "tag": "logica", "q": "¿Cuántas veces puedes restar 5 a 25?", "options": ["5", "4", "1", "Infinitas"], "answer": 2 },
+  { "id": "q81", "tag": "logica", "q": "Es hijo de mi padre pero no es hijo de mi madre ni de mis padres juntos. ¿Quién es?", "options": ["Mi hermanastro", "Yo misma", "Mi primo", "Es imposible"], "answer": 1 },
+  { "id": "q82", "tag": "logica", "q": "En una fila eres el cuarto por delante y el cuarto por detrás. ¿Cuánta gente hay en la fila?", "options": ["8", "9", "7", "6"], "answer": 2 },
+  { "id": "q83", "tag": "calculo", "q": "Un saco de 50 kg se reparte entre 4 personas y sobran 2 kg. ¿Cuánto toca a cada una?", "options": ["10 kg", "13 kg", "12 kg", "11 kg"], "answer": 2 },
+  { "id": "q84", "tag": "calculo", "q": "¿Cuánto es 7 × 8 + 7?", "options": ["63", "56", "70", "64"], "answer": 0 },
+  { "id": "q85", "tag": "calculo", "q": "Si cada jugador pone 12 monedas y sois 8, ¿cuántas monedas hay en el bote?", "options": ["88", "96", "108", "80"], "answer": 1 },
+  { "id": "q86", "tag": "calculo", "q": "Pagas 0,80 € por una barra con un billete de 2 €. ¿Cuánto te devuelven?", "options": ["1,30 €", "1,20 €", "1,10 €", "0,80 €"], "answer": 1 },
+  { "id": "q87", "tag": "cultura", "q": "¿Qué se enciende tradicionalmente en la noche de San Juan?", "options": ["Las uvas", "Las hogueras", "Las luces del pueblo", "Las chimeneas"], "answer": 1 },
+  { "id": "q88", "tag": "cultura", "q": "¿Qué significa «estar en la edad del pavo»?", "options": ["Ser un niño pequeño", "Ser adolescente", "Tener mucha hambre", "Estar de vacaciones"], "answer": 1 },
+  { "id": "q89", "tag": "cultura", "q": "¿Cómo se llama la fiesta de Buñol en la que se tiran tomates?", "options": ["La Vendimia", "El Entierro", "La Tomatina", "La Mercè"], "answer": 2 },
+  { "id": "q90", "tag": "cultura", "q": "¿Cómo acaba el refrán «a quien madruga…»?", "options": ["«la suerte le saluda»", "«Dios le ayuda»", "«la casa le espera»", "«el café se enfría»"], "answer": 1 },
+  { "id": "q91", "tag": "acertijo", "q": "Cuanto más grande, menos se ve. ¿Qué es?", "options": ["La montaña", "La oscuridad", "El mar", "La deuda"], "answer": 1 },
+  { "id": "q92", "tag": "logica", "q": "Si ayer fue miércoles, ¿qué día fue antes de ayer?", "options": ["Martes", "Lunes", "Jueves", "Domingo"], "answer": 1 }
 ]

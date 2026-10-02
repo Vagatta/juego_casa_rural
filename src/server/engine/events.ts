@@ -33,7 +33,7 @@ export function applyEvent(g: Game, eventId: string, out: Outbox): void {
   g.used.events.push(def.id);
   const now = Date.now();
   const effect = def.effect;
-  g.event = { id: def.id, endsAt: effect.type === 'rule' || effect.type === 'lightning' || effect.type === 'auction' || effect.type === 'truce' ? now + effect.durationSec * 1000 : null };
+  g.event = { id: def.id, endsAt: effect.type === 'rule' || effect.type === 'lightning' || effect.type === 'auction' || effect.type === 'truce' || effect.type === 'blackout' ? now + effect.durationSec * 1000 : null };
   g.rounds[g.roundIndex]?.eventIds.push(def.id);
   const active = activePlayers(g);
   const byCoins = () => [...active].sort((a, b) => b.coins - a.coins);
@@ -142,6 +142,10 @@ export function applyEvent(g: Game, eventId: string, out: Outbox): void {
     case 'auction':
       // Subasta ciega: pujas selladas; solo paga el ganador. La TV cuenta atrás.
       g.auction = { endsAt: now + effect.durationSec * 1000, bids: {} };
+      break;
+    case 'blackout':
+      // El apagón es solo escenografía: la TV se va a negro hasta endsAt.
+      // El móvil sigue siendo el controlador — es la ventana perfecta para las misiones.
       break;
   }
   announce(g, `${def.emoji} ${def.title}`, 'special');

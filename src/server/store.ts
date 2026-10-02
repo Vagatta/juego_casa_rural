@@ -19,7 +19,7 @@ function migrate(g: Game): Game {
   g.condemned ??= [];
   g.truceUntil ??= 0;
   g.flags.ladenVote ??= false;
-  for (const p of g.players) p.stats.votesCast ??= 0;
+  for (const p of g.players) { p.stats.votesCast ??= 0; p.readyFor ??= null; }
   // Una pausa no sobrevive al reinicio: pausedAt sería del mundo viejo y al
   // reanudar dispararía todos los plazos. La partida vuelve corriendo el tiempo.
   if (g.pausedRemainingMs !== null && g.pausedRemainingMs !== undefined) {

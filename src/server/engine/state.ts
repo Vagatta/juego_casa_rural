@@ -67,6 +67,8 @@ export interface PlayerState {
   left: boolean;
   kicked: boolean;
   ready: boolean;
+  /** «Estamos listos»: clave de la espera actual que este jugador quiere saltar (fase:ronda:subestado) */
+  readyFor: string | null;
   inventory: { candado: number; voto_doble: number; coartada: number };
   ability: { total: number; roundIndex: number; inRound: number };
   pilladoRound: number;

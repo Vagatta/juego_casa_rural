@@ -96,7 +96,7 @@ export function addPlayer(g: Game, rawName: string, avatar: string): PlayerState
     avatar: (AVATARS as readonly string[]).includes(avatar) ? avatar : AVATARS[g.players.length % AVATARS.length],
     color: PLAYER_COLORS.find((c) => !usedColors.has(c)) ?? PLAYER_COLORS[0],
     joinedAt: Date.now(), roleId: null, coins: START_COINS, cerillas: 0,
-    connected: false, lastSeen: Date.now(), left: false, kicked: false, ready: false,
+    connected: false, lastSeen: Date.now(), left: false, kicked: false, ready: false, readyFor: null,
     inventory: { candado: 0, voto_doble: 0, coartada: 0 }, ability: { total: 0, roundIndex: -1, inRound: 0 },
     pilladoRound: -1, coinflipRound: -1, streak: 0, lastEarnRound: -1, notes: '', lastReactAt: 0, stats: emptyStats(),
   };
@@ -160,7 +160,7 @@ export function startGame(g: Game, out: Outbox): void {
   assignRoles(g);
   g.plan = buildPlan(g.settings, active.length, gameContent(g));
   g.startedAt = Date.now();
-  g.players.forEach((p) => (p.ready = false));
+  g.players.forEach((p) => { p.ready = false; p.readyFor = null; });
   setPhase(g, 'ROLE_REVEAL');
   toast(out, 'all', { text: 'Tu identidad está lista. Que nadie mire.', tone: 'special', sound: 'reveal' });
 }
@@ -329,6 +329,49 @@ function enterFinale(g: Game, out: Outbox): void {
   g.finishedAt = Date.now();
   setPhase(g, 'FINALE');
   toast(out, 'all', { text: 'La noche termina...', tone: 'special', sound: 'reveal' });
+}
+
+/** «Estamos listos»: clave de la espera actual. Solo existe en los momentos en
+ *  que la casa espera al director o a un temporizador sin que nadie deba actuar —
+ *  nunca durante inputs reales (votos, rituales, respuestas) ni arbitrajes. */
+export function readyKey(g: Game): string | null {
+  switch (g.phase) {
+    case 'ROUND_INTRO':
+      return `ri:${g.roundIndex}`;
+    case 'CHALLENGE': {
+      const s = g.challenge?.status;
+      return s === 'briefing' || s === 'done' ? `ch:${g.roundIndex}:${s}` : null;
+    }
+    case 'RITUAL':
+      return g.ritual?.status === 'revealed' ? `rit:${g.roundIndex}` : null;
+    case 'INVESTIGATION':
+      return `inv:${g.roundIndex}`;
+    case 'VOTING':
+      return g.vote?.status === 'revealed' ? `vote:${g.roundIndex}` : null;
+    case 'ROUND_RESULT':
+      return `res:${g.roundIndex}`;
+    case 'FINAL_ACCUSATION':
+      return g.vote?.status === 'open' ? 'final' : null;
+    default:
+      return null;
+  }
+}
+
+export function readyUp(g: Game): { count: number; total: number } | null {
+  const key = readyKey(g);
+  if (!key) return null;
+  const connected = activePlayers(g).filter((x) => x.connected);
+  return { count: connected.filter((x) => x.readyFor === key).length, total: connected.length };
+}
+
+/** Si todo el que puede pulsar lo ha pulsado, la espera se acaba aquí. Un móvil
+ *  caído no cuenta: no puede consentir ni bloquear (misma regla que ROLE_REVEAL). */
+function maybeAdvanceAllReady(g: Game, out: Outbox): void {
+  // En pausa el tiempo está parado: ninguna espera salta mientras el director respira
+  if (g.pausedRemainingMs !== null) return;
+  const key = readyKey(g);
+  if (!key) return;
+  if (activePlayers(g).every((x) => x.readyFor === key || !x.connected)) advance(g, out);
 }
 
 /** Botón principal del director. Avanza según la fase y sub-estado actuales. */
@@ -560,11 +603,20 @@ export type PlayerAction =
 export function playerAction(g: Game, p: PlayerState, a: PlayerAction, out: Outbox, hostOnline: boolean): void {
   if (p.left) throw new GameError('Has salido de la partida');
   switch (a.type) {
-    case 'ready':
-      assertPhase(g, 'ROLE_REVEAL');
-      p.ready = true;
-      if (activePlayers(g).every((x) => x.ready || !x.connected)) startRound(g, 0, out);
+    case 'ready': {
+      if (g.phase === 'ROLE_REVEAL') {
+        p.ready = true;
+        if (activePlayers(g).every((x) => x.ready || !x.connected)) startRound(g, 0, out);
+        return;
+      }
+      // «Estamos listos»: cada uno marca la espera actual; al completarse, salta sola
+      if (g.pausedRemainingMs !== null) throw new GameError('Está en pausa');
+      const key = readyKey(g);
+      if (!key) throw new GameError('Ahora no hay nada que confirmar');
+      p.readyFor = key;
+      maybeAdvanceAllReady(g, out);
       return;
+    }
     case 'leave':
       return leavePlayer(g, p, out);
     case 'claimHost':
@@ -951,6 +1003,7 @@ export function leavePlayer(g: Game, p: PlayerState, out: Outbox): void {
   }
   if (g.phase === 'RITUAL' && g.ritual?.status === 'open' && g.ritual.participants.every((id) => g.ritual!.choices[id] || getPlayer(g, id).left)) revealRitual(g, out);
   if (g.phase === 'VOTING' && g.vote?.status === 'open' && g.vote.voters.every((id) => g.vote!.ballots[id] || getPlayer(g, id).left || roleOf(getPlayer(g, id))?.id === 'ermitano')) revealJudgment(g);
+  maybeAdvanceAllReady(g, out);
 }
 
 /** Un socket caído no marca al jugador como ausente (puede volver), pero sí
@@ -958,6 +1011,8 @@ export function leavePlayer(g: Game, p: PlayerState, out: Outbox): void {
  *  se apaga justo tras el último "listo" dejaba la casa esperándole en vano. */
 export function onPlayerOffline(g: Game, out: Outbox): void {
   if (g.phase === 'ROLE_REVEAL' && activePlayers(g).every((x) => x.ready || !x.connected)) startRound(g, 0, out);
+  // Un móvil caído no puede confirmar, así que tampoco puede bloquear el «estamos listos»
+  maybeAdvanceAllReady(g, out);
 }
 
 /** Un jugador que se fue puede volver con su token mientras la partida siga. */

@@ -101,6 +101,8 @@ export interface EventView {
   title: string;
   text: string;
   endsAt: number | null;
+  /** El apagón: la pantalla de la casa se va a negro mientras endsAt siga vivo */
+  blackout?: boolean;
 }
 
 export interface TallyEntry {
@@ -315,6 +317,8 @@ export interface GameView {
   announcements: { id: number; text: string; tone: 'info' | 'danger' | 'safe' | 'special'; at: number }[];
   finale: FinaleView | null;
   hostOnline: boolean;
+  /** «Estamos listos»: en esperas de director/timer, quién ya ha confirmado. null fuera de esas esperas. */
+  readyUp: { count: number; total: number; mine: boolean } | null;
   me?: MeView;
   missions?: MissionView[];
   clues?: ClueView[];

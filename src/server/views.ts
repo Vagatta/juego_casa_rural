@@ -15,7 +15,7 @@ import type {
 } from '../shared/types.ts';
 import { content, gameContent, getRole } from './content.ts';
 import { challengeTallies, defOf, hasActed } from './engine/challenges.ts';
-import { abilityBlocker, abilityUsesLeft, priceOf } from './engine/game.ts';
+import { abilityBlocker, abilityUsesLeft, priceOf, readyKey, readyUp } from './engine/game.ts';
 import { SABOTEUR_TAG, SUSPECT_TAG } from './engine/missions.ts';
 import { eligibleEvents } from './engine/events.ts';
 import { affectsCandles } from './engine/plan.ts';
@@ -28,7 +28,8 @@ export interface Viewer {
   hostOnline: boolean;
 }
 
-function actedInPhase(g: Game, p: PlayerState): boolean {
+function actedInPhase(g: Game, p: PlayerState, rKey: string | null): boolean {
+  if (rKey && p.readyFor === rKey) return true;
   switch (g.phase) {
     case 'ROLE_REVEAL':
       return p.ready;
@@ -45,6 +46,7 @@ function actedInPhase(g: Game, p: PlayerState): boolean {
 }
 
 function publicPlayers(g: Game): PublicPlayer[] {
+  const rKey = readyKey(g);
   return g.players.map((p) => ({
     id: p.id,
     name: p.name,
@@ -56,7 +58,7 @@ function publicPlayers(g: Game): PublicPlayer[] {
     isHost: p.id === g.hostPlayerId,
     ready: p.ready,
     suspect: g.suspects.includes(p.id),
-    acted: actedInPhase(g, p),
+    acted: actedInPhase(g, p, rKey),
   }));
 }
 
@@ -207,19 +209,21 @@ function cluesOf(g: Game, p: PlayerState): ClueView[] {
 function hostPrimary(g: Game): HostView['primary'] {
   const active = activePlayers(g);
   const readyCount = active.filter((p) => p.ready).length;
+  const up = readyUp(g);
+  const readyHint = up ? `${up.count}/${up.total} listos` : null;
   switch (g.phase) {
     case 'LOBBY':
       return { label: 'Comenzar partida', enabled: active.length >= 4, hint: active.length < 4 ? `Faltan ${4 - active.length} jugadores` : `${active.length} en la casa` };
     case 'ROLE_REVEAL':
       return { label: 'Empezar ronda 1', enabled: true, hint: `${readyCount}/${active.length} han leído su identidad` };
     case 'ROUND_INTRO':
-      return { label: 'Ir a la prueba', enabled: true, hint: null };
+      return { label: 'Ir a la prueba', enabled: true, hint: readyHint };
     case 'CHALLENGE': {
       const c = g.challenge!;
       const kind = c.kind;
       if (c.status === 'briefing') {
         if (kind === 'truth_lie' && c.truthLie!.lieIndex === null) return { label: 'Empezar votación', enabled: true, hint: 'Aún no ha marcado su mentira' };
-        return { label: kind === 'code_hunt' ? '¡A esconder!' : 'Empezar prueba', enabled: true, hint: 'Leed las instrucciones en voz alta' };
+        return { label: kind === 'code_hunt' ? '¡A esconder!' : 'Empezar prueba', enabled: true, hint: readyHint ?? 'Leed las instrucciones en voz alta' };
       }
       if (c.status === 'running') {
         const label = { physical: 'Tiempo · arbitrar', quiz: 'Cerrar respuestas', code_hunt: 'Terminar búsqueda', word_impostor: 'A votar', truth_lie: 'Cerrar votos', social_vote: 'Cerrar votos', interrogatorio: 'Cerrar el interrogatorio' }[kind];
@@ -227,22 +231,22 @@ function hostPrimary(g: Game): HostView['primary'] {
       }
       if (c.status === 'voting') return { label: 'Revelar infiltrado', enabled: true, hint: null };
       if (c.status === 'judging') return { label: 'Arbitra la prueba', enabled: false, hint: defOf(g, c).scoring === 'winner' ? 'Elige al ganador' : '¿Superada o fallada?' };
-      return { label: 'Continuar', enabled: true, hint: null };
+      return { label: 'Continuar', enabled: true, hint: readyHint };
     }
     case 'RITUAL':
       return g.ritual!.status === 'open'
         ? { label: 'Revelar el Ritual', enabled: true, hint: `${Object.keys(g.ritual!.choices).length}/${g.ritual!.participants.length} han decidido` }
-        : { label: 'A investigar', enabled: true, hint: null };
+        : { label: 'A investigar', enabled: true, hint: readyHint };
     case 'INVESTIGATION':
-      return { label: g.plan[g.roundIndex]?.hasJudgment ? 'Al juicio' : 'Terminar ronda', enabled: true, hint: null };
+      return { label: g.plan[g.roundIndex]?.hasJudgment ? 'Al juicio' : 'Terminar ronda', enabled: true, hint: readyHint };
     case 'VOTING':
       return g.vote!.status === 'open'
         ? { label: 'Revelar votos', enabled: true, hint: `${Object.keys(g.vote!.ballots).length}/${g.vote!.voters.length} han votado` }
-        : { label: 'Ver resumen', enabled: true, hint: null };
+        : { label: 'Ver resumen', enabled: true, hint: readyHint };
     case 'ROUND_RESULT':
-      return { label: g.roundIndex >= g.plan.length - 1 ? 'Gran Acusación' : 'Siguiente ronda', enabled: true, hint: null };
+      return { label: g.roundIndex >= g.plan.length - 1 ? 'Gran Acusación' : 'Siguiente ronda', enabled: true, hint: readyHint };
     case 'FINAL_ACCUSATION':
-      return { label: 'Revelar la verdad', enabled: true, hint: `${Object.keys(g.vote!.ballots).length}/${g.vote!.voters.length} han acusado` };
+      return { label: 'Revelar la verdad', enabled: true, hint: `${Object.keys(g.vote!.ballots).length}/${g.vote!.voters.length} han acusado${readyHint ? ` · ${readyHint}` : ''}` };
     case 'FINALE':
       return g.finaleStep < (g.finale?.totalSteps ?? 1) - 1 ? { label: 'Siguiente', enabled: true, hint: null } : { label: 'Fin de la noche', enabled: false, hint: null };
   }
@@ -302,7 +306,7 @@ export function buildView(g: Game, viewer: Viewer): GameView {
     players: publicPlayers(g),
     phaseEndsAt: g.phaseEndsAt,
     pausedRemainingMs: g.pausedRemainingMs,
-    event: eventDef ? { id: eventDef.id, emoji: eventDef.emoji, title: eventDef.title, text: eventDef.text, endsAt: g.event!.endsAt } : null,
+    event: eventDef ? { id: eventDef.id, emoji: eventDef.emoji, title: eventDef.title, text: eventDef.text, endsAt: g.event!.endsAt, blackout: eventDef.effect.type === 'blackout' || undefined } : null,
     challenge: challengeView(g, me),
     market: [...g.market],
     ritual: g.ritual
@@ -353,6 +357,10 @@ export function buildView(g: Game, viewer: Viewer): GameView {
     announcements: g.announcements.slice(-8).map((a) => ({ ...a })),
     finale: finaleView(g),
     hostOnline: viewer.hostOnline,
+    readyUp: (() => {
+      const r = readyUp(g);
+      return r ? { ...r, mine: !!me && me.readyFor === readyKey(g) } : null;
+    })(),
   };
 
   if (me) {

@@ -644,6 +644,54 @@
   border-radius: 10px;
 }
 
+/* «Estamos listos»: confirmación colectiva en las esperas */
+.readyup { text-align: center; }
+.readyup .btn { border-style: dashed; }
+.readyup .muted { font-size: 0.9rem; }
+
+/* El apagón: la pantalla de la casa se va a negro puro */
+.blackout {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: #050403;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  animation: blackout-in 240ms ease-out both;
+}
+
+.blackout__ember {
+  font-size: clamp(34px, 4vw, 54px);
+  opacity: 0.75;
+  animation: ember 1.6s ease-in-out infinite;
+}
+
+.blackout__hint {
+  font-family: var(--f-hand);
+  font-size: clamp(20px, 2.4vw, 30px);
+  color: rgba(241, 231, 208, 0.55);
+}
+
+.blackout .timer { color: rgba(241, 231, 208, 0.7); }
+
+@keyframes blackout-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ember {
+  0%, 100% { opacity: 0.35; transform: scale(0.95); }
+  50% { opacity: 0.9; transform: scale(1.05); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blackout { animation: none; }
+  .blackout__ember { animation: none; opacity: 0.7; }
+}
+
 @keyframes floater-rise {
   0% { transform: translateY(0) rotate(-6deg) scale(0.6); opacity: 0; }
   12% { transform: translateY(-10vh) rotate(4deg) scale(1.1); opacity: 1; }

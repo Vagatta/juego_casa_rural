@@ -74,6 +74,7 @@ const eventEffectSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('inheritance'), percent: z.number().positive().max(100) }),
   z.object({ type: z.literal('laden_vote') }),
   z.object({ type: z.literal('truce'), durationSec: z.number().int().positive() }),
+  z.object({ type: z.literal('blackout'), durationSec: z.number().int().positive() }),
   z.object({ type: z.literal('cuco_mission') }),
   z.object({ type: z.literal('extra_cerilla') }),
   z.object({ type: z.literal('public_vote') }),
