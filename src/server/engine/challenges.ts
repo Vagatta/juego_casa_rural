@@ -260,6 +260,7 @@ export function finalizeChallenge(g: Game, out: Outbox): void {
   const def = defOf(g, c);
   c.status = 'done';
   g.phaseEndsAt = null;
+  g.pausedRemainingMs = null; // el timer guardado era del sub-estado que acaba de cerrar
 
   switch (c.kind) {
     case 'physical':

@@ -1,6 +1,6 @@
 // Pistas generadas a partir de datos REALES de la partida. Pueden ser ciertas,
 // ambiguas (ciertas pero poco útiles) o falsas. El destinatario nunca sabe cuál.
-import { chance, pick, sample, shortId, shuffle } from './rng.ts';
+import { chance, pick, rand, sample, shortId, shuffle } from './rng.ts';
 import {
   type ClueSource,
   type ClueState,
@@ -198,7 +198,7 @@ export function randomClue(g: Game, recipient: PlayerState, truth: Truth): Draft
 
 export function shopClueTruth(g: Game): Truth {
   const [pTrue, pAmbiguous] = g.settings.difficulty === 'dificil' ? [0.55, 0.2] : g.settings.difficulty === 'facil' ? [0.8, 0.1] : [0.7, 0.15];
-  const roll = Math.random();
+  const roll = rand(1_000_000) / 1_000_000;
   return roll < pTrue ? 'true' : roll < pTrue + pAmbiguous ? 'ambiguous' : 'false';
 }
 

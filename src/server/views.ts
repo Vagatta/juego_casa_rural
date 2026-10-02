@@ -169,7 +169,7 @@ function meView(g: Game, p: PlayerState, isHost: boolean): MeView {
     cerillas: isCuco(p) ? p.cerillas : 0,
     inventory: { candado: p.inventory.candado, voto_doble: p.inventory.voto_doble, coartada: p.inventory.coartada },
     ability: role?.ability ? { usesLeft: abilityUsesLeft(p), canUse: !abilityBlocker(g, p), reason: abilityBlocker(g, p) } : null,
-    pilladoAvailable: g.roundIndex >= 0 && p.pilladoRound !== g.roundIndex,
+    pilladoAvailable: g.roundIndex >= 0 && p.pilladoRound !== g.roundIndex && g.phase !== 'FINALE' && g.phase !== 'FINAL_ACCUSATION',
     notes: p.notes,
     prediction: g.predictions[p.id] ?? null,
     canLetter: g.suspects.includes(p.id) && g.suspectRound === g.roundIndex && !g.letters.some((l) => l.playerId === p.id),
@@ -256,10 +256,12 @@ function hostView(g: Game, viewer: Viewer): HostView {
   const isDirectorDevice = viewer.audience === 'director';
   const sealAvailable = isDirectorDevice && !g.settings.hostPlays && g.phase !== 'LOBBY';
   const c = g.challenge;
+  const paused = g.pausedAt !== null;
   return {
-    primary: hostPrimary(g),
-    canJudge: g.phase === 'CHALLENGE' && !!c && (c.kind === 'physical' || c.kind === 'interrogatorio') && (c.status === 'judging' || c.status === 'running') && defOf(g, c).scoring === 'passfail',
-    canPickWinners: g.phase === 'CHALLENGE' && !!c && (c.kind === 'physical' || c.kind === 'interrogatorio') && (c.status === 'judging' || c.status === 'running') && defOf(g, c).scoring === 'winner',
+    // En tiempo muerto la casa no cambia de fase ni arbitra: solo se reanuda
+    primary: paused ? { label: 'Tiempo muerto', enabled: false, hint: 'Pulsa «Seguir» para reanudar' } : hostPrimary(g),
+    canJudge: !paused && g.phase === 'CHALLENGE' && !!c && (c.kind === 'physical' || c.kind === 'interrogatorio') && (c.status === 'judging' || c.status === 'running') && defOf(g, c).scoring === 'passfail',
+    canPickWinners: !paused && g.phase === 'CHALLENGE' && !!c && (c.kind === 'physical' || c.kind === 'interrogatorio') && (c.status === 'judging' || c.status === 'running') && defOf(g, c).scoring === 'winner',
     eventsAvailable: g.phase === 'LOBBY' || g.phase === 'FINALE' ? [] : eligibleEvents(g).map((e) => ({ id: e.id, emoji: e.emoji, title: e.title })),
     isDirectorDevice,
     sealAvailable,

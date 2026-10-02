@@ -5,7 +5,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { CODE_ALPHABET, CODE_LENGTH } from '../shared/constants.ts';
 import { rand } from './engine/rng.ts';
-import type { Game } from './engine/state.ts';
+import { type Game, emptyStats } from './engine/state.ts';
 
 interface SnapshotBackend {
   init(): Promise<void>;
@@ -16,22 +16,57 @@ interface SnapshotBackend {
 
 /** Defaults para campos añadidos tras crear el snapshot — partidas viejas no se rompen. */
 function migrate(g: Game): Game {
+  g.flags ??= { multiplier: 1, shopSale: false, noShop: false, publicVote: false, ladenVote: false };
+  g.flags.ladenVote ??= false;
   g.condemned ??= [];
   g.truceUntil ??= 0;
-  g.flags.ladenVote ??= false;
-  for (const p of g.players) { p.stats.votesCast ??= 0; p.readyFor ??= null; }
+  g.suspects ??= [];
+  g.suspectRound ??= -1;
+  g.letters ??= [];
+  g.predictions ??= {};
+  g.market ??= [];
+  g.announcements ??= [];
+  g.announceSeq ??= 0;
+  g.lastJudgment ??= null;
+  g.auction ??= null;
+  g.finale ??= null;
+  g.finaleStep ??= 0;
+  g.sealOpened ??= 0;
+  g.rematchTo ??= null;
+  g.used ??= { challenges: [], events: [], missions: [], quiz: [], social: [], words: [] };
+  g.used.words ??= [];
+  for (const p of g.players) {
+    p.ready ??= false;
+    p.readyFor ??= null;
+    p.kicked ??= false;
+    p.connected ??= false;
+    p.left ??= false;
+    p.cerillas ??= 0;
+    p.notes ??= '';
+    p.lastReactAt ??= 0;
+    p.pilladoRound ??= -1;
+    p.coinflipRound ??= -1;
+    p.streak ??= 0;
+    p.lastEarnRound ??= -1;
+    p.inventory ??= { candado: 0, voto_doble: 0, coartada: 0 };
+    p.ability ??= { total: 0, roundIndex: -1, inRound: 0 };
+    p.stats ??= emptyStats();
+    p.stats.votesCast ??= 0;
+  }
   // Una pausa no sobrevive al reinicio: la partida vuelve corriendo el tiempo.
   // Los plazos internos se desplazan como haría resume — se congelaron en pausedAt
   // y no deberían saltar al instante por el tiempo que el servidor estuvo caído.
-  if (g.pausedRemainingMs !== null && g.pausedRemainingMs !== undefined) {
-    const pausedFor = g.pausedAt ? Date.now() - g.pausedAt : 0;
+  // (pausedAt es el flag de pausa; pausedRemainingMs puede ser null sin timer de fase)
+  if (g.pausedAt != null || g.pausedRemainingMs != null) {
+    g.pausedAt ??= Date.now();
+    const pausedFor = Date.now() - g.pausedAt;
     const hunt = g.challenge?.code;
     if (hunt?.huntStartsAt) hunt.huntStartsAt += pausedFor;
-    if (g.pausedAt !== null && g.truceUntil > g.pausedAt) g.truceUntil += pausedFor;
+    if (g.truceUntil > g.pausedAt) g.truceUntil += pausedFor;
     if (g.event?.endsAt) g.event.endsAt += pausedFor;
     if (g.auction) g.auction.endsAt += pausedFor;
     for (const m of g.missions) if (m.status === 'active' && m.expiresAt) m.expiresAt += pausedFor;
-    g.phaseEndsAt = Date.now() + g.pausedRemainingMs;
+    if (g.pausedRemainingMs != null) g.phaseEndsAt ??= Date.now() + g.pausedRemainingMs;
     g.pausedRemainingMs = null;
     g.pausedAt = null;
   }

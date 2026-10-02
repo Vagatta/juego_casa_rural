@@ -933,6 +933,34 @@ test('tiempo muerto: el reloj de la casa se congela también por dentro', () => 
   assert.equal(tick(g, out, Date.now() + 999_999_999), false, 'el barrido no ejecuta nada en pausa');
 });
 
+test('tiempo muerto sin temporizador de fase: se puede pausar igualmente', () => {
+  const g: Game = createGame('TESTL', { durationMin: 60, difficulty: 'normal', mode: 'clasico', expectedPlayers: 6, hostPlays: true });
+  const ps = ['Ana', 'Carlos', 'Diego', 'Laura', 'Marcos', 'Marta'].map((n) => addPlayer(g, n, '🐓'));
+  for (const p of ps) p.roleId = 'vecino';
+  ps[0].connected = true; // alguien despierto que aún no ha confirmado: no hay unanimidad
+  const out = newOutbox();
+  // Fase narrativa sin piloto: no hay phaseEndsAt, pero sí plazos internos vivos
+  g.roundIndex = 1;
+  g.phase = 'ROUND_INTRO';
+  g.phaseEndsAt = null;
+  g.settings.autopilot = false;
+  applyEvent(g, 'e54', out); // subasta abierta
+  const auctionEnd = g.auction!.endsAt;
+
+  hostAction(g, { type: 'pause' }, out, true);
+  assert.ok(g.pausedAt !== null, 'la casa queda en pausa aunque no haya timer de fase');
+  assert.equal(g.pausedRemainingMs, null, 'no hay timer de fase que guardar');
+
+  // La eternidad no consume la subasta
+  g.pausedAt = Date.now() - 600_000;
+  assert.equal(tick(g, out, Date.now() + 999_999_999), false, 'el barrido no ejecuta nada en pausa');
+
+  hostAction(g, { type: 'resume' }, out, true);
+  assert.equal(g.pausedAt, null);
+  assert.equal(g.phaseEndsAt, null, 'una pausa sin timer no crea un temporizador fantasma');
+  assert.ok(g.auction!.endsAt > auctionEnd, 'la subasta recupera el tiempo congelado');
+});
+
 test('la Gran Acusación es input real: el "estamos listos" no la salta', () => {
   const g: Game = createGame('TESTI', { durationMin: 60, difficulty: 'normal', mode: 'clasico', expectedPlayers: 6, hostPlays: true });
   const ps = ['Ana', 'Carlos', 'Diego', 'Laura', 'Marcos', 'Marta'].map((n) => addPlayer(g, n, '🐓'));

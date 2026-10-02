@@ -219,6 +219,9 @@ function rollMarket(g: Game): void {
 }
 
 function enterChallenge(g: Game, out: Outbox): void {
+  // Sin jugadores activos no hay prueba que montar (pick() sobre lista vacía
+  // lanzaría un Error genérico — mejor un mensaje que diga lo que pasa)
+  if (!activePlayers(g).length) throw new GameError('No queda nadie en la casa');
   g.challenge = setupChallenge(g, currentPlan(g)!.challengeId, out);
   g.used.challenges.push(g.challenge.defId);
   setPhase(g, 'CHALLENGE');
@@ -266,6 +269,7 @@ function revealRitual(g: Game, out: Outbox): void {
   r.outcome = saboteurs.length ? 'grieta' : 'vela';
   r.status = 'revealed';
   g.phaseEndsAt = null;
+  g.pausedRemainingMs = null; // el timer guardado era del ritual abierto, ya cerrado
   const round = g.rounds[g.roundIndex];
   round.apagones = saboteurs.length;
   round.saboteurs = saboteurs;
@@ -312,6 +316,7 @@ function revealJudgment(g: Game): void {
   v.tally = tally;
   v.status = 'revealed';
   g.phaseEndsAt = null;
+  g.pausedRemainingMs = null; // el timer guardado era de la votación abierta, ya cerrada
   g.suspects = v.suspects;
   g.flags.ladenVote = false; // consumido por este juicio
   g.condemned = [...v.suspects]; // el Voto Lastrado los recuerda en el próximo juicio
@@ -371,7 +376,7 @@ export function readyUp(g: Game): { count: number; total: number } | null {
  *  caído no cuenta: no puede consentir ni bloquear (misma regla que ROLE_REVEAL). */
 function maybeAdvanceAllReady(g: Game, out: Outbox): void {
   // En pausa el tiempo está parado: ninguna espera salta mientras el director respira
-  if (g.pausedRemainingMs !== null) return;
+  if (g.pausedAt !== null) return;
   const key = readyKey(g);
   if (!key) return;
   const active = activePlayers(g);
@@ -451,7 +456,7 @@ export function autoAdvanceDelay(g: Game): number | null {
 /** Temporizadores. Devuelve true si ha cambiado algo. */
 export function tick(g: Game, out: Outbox, now = Date.now()): boolean {
   // En pausa el mundo se congela: misiones relámpago, subasta y eventos también esperan
-  if (g.pausedRemainingMs !== null) return false;
+  if (g.pausedAt !== null) return false;
   // Las misiones relámpago caducan cuando cae su cuenta atrás
   const expired = g.missions.filter((m) => m.status === 'active' && m.expiresAt && now >= m.expiresAt);
   if (expired.length) {
@@ -473,14 +478,14 @@ export function tick(g: Game, out: Outbox, now = Date.now()): boolean {
     return true;
   }
   // El piloto arma cuentas atrás en las fases que antes esperaban al director
-  if (g.settings.autopilot && g.phaseEndsAt === null && g.pausedRemainingMs === null) {
+  if (g.settings.autopilot && g.phaseEndsAt === null && g.pausedAt === null) {
     const delay = autoAdvanceDelay(g);
     if (delay !== null) {
       g.phaseEndsAt = now + delay * 1000;
       return true;
     }
   }
-  if (!g.phaseEndsAt || g.pausedRemainingMs !== null || now < g.phaseEndsAt) return false;
+  if (!g.phaseEndsAt || g.pausedAt !== null || now < g.phaseEndsAt) return false;
   const fired = g.phase;
   g.phaseEndsAt = null;
   switch (fired) {
@@ -516,24 +521,41 @@ export function hostAction(g: Game, a: HostAction, out: Outbox, isDirectorDevice
     case 'start':
       return startGame(g, out);
     case 'advance':
-      return advance(g, out);
     case 'judge':
-      assertPhase(g, 'CHALLENGE');
-      return judgeChallenge(g, a, out);
+    case 'end': {
+      // Mientras la casa respira no cambia de fase: setPhase pondría un timer nuevo
+      // que resume pisaría con el pausedRemainingMs de la fase vieja
+      if (g.pausedAt !== null) throw new GameError('Está en pausa');
+      if (a.type === 'advance') return advance(g, out);
+      if (a.type === 'judge') {
+        assertPhase(g, 'CHALLENGE');
+        return judgeChallenge(g, a, out);
+      }
+      if (g.phase === 'LOBBY') throw new GameError('La partida no ha empezado');
+      if (g.phase === 'FINALE') return;
+      if (!g.vote || g.vote.kind !== 'final') g.vote = null;
+      return enterFinale(g, out);
+    }
     case 'extend':
-      if (g.pausedRemainingMs !== null) g.pausedRemainingMs += a.seconds * 1000;
+      // Con pausa sin temporizador de fase no hay nada que alargar: silencio
+      if (g.pausedAt !== null) g.pausedRemainingMs = g.pausedRemainingMs === null ? null : g.pausedRemainingMs + a.seconds * 1000;
       else if (g.phaseEndsAt) g.phaseEndsAt += a.seconds * 1000;
       else throw new GameError('No hay temporizador en marcha');
       return;
-    case 'pause':
-      if (!g.phaseEndsAt || g.pausedRemainingMs !== null) throw new GameError('No hay nada que pausar');
-      g.pausedRemainingMs = Math.max(0, g.phaseEndsAt - Date.now());
-      g.pausedAt = Date.now();
+    case 'pause': {
+      // La pausa congela el mundo entero — también los plazos internos (evento,
+      // subasta, relámpago, escondite). No hace falta un timer de fase en marcha.
+      if (g.pausedAt !== null) throw new GameError('Ya está en pausa');
+      if (g.phase === 'LOBBY') throw new GameError('La partida no ha empezado');
+      const now = Date.now();
+      g.pausedRemainingMs = g.phaseEndsAt ? Math.max(0, g.phaseEndsAt - now) : null;
+      g.pausedAt = now;
       g.phaseEndsAt = null;
       announce(g, 'Tiempo muerto.', 'info');
       return;
+    }
     case 'resume': {
-      if (g.pausedRemainingMs === null) throw new GameError('No está en pausa');
+      if (g.pausedAt === null) throw new GameError('No está en pausa');
       const now = Date.now();
       const pausedFor = g.pausedAt ? now - g.pausedAt : 0;
       // Los contadores internos también se mueven: la pausa no consume sus plazos
@@ -545,9 +567,15 @@ export function hostAction(g: Game, a: HostAction, out: Outbox, isDirectorDevice
       if (g.event?.endsAt) g.event.endsAt += pausedFor;
       if (g.auction) g.auction.endsAt += pausedFor;
       for (const m of g.missions) if (m.status === 'active' && m.expiresAt) m.expiresAt += pausedFor;
-      g.phaseEndsAt = now + g.pausedRemainingMs;
+      // Si algo cambió de fase durante la pausa, su temporizador nuevo manda —
+      // el remanente viejo pertenece a la fase que se congeló (null = pausa sin timer)
+      if (g.pausedRemainingMs !== null) g.phaseEndsAt ??= now + g.pausedRemainingMs;
       g.pausedRemainingMs = null;
       g.pausedAt = null;
+      // Si durante la pausa alguien se fue y la unanimidad quedó completa
+      // (un ausente no bloquea), la espera se cierra al descongelar el tiempo
+      if (g.phase === 'ROLE_REVEAL') maybeStartFirstRound(g, out);
+      else maybeAdvanceAllReady(g, out);
       return;
     }
     case 'event':
@@ -575,11 +603,6 @@ export function hostAction(g: Game, a: HostAction, out: Outbox, isDirectorDevice
       out.kicked.push(p.id);
       return;
     }
-    case 'end':
-      if (g.phase === 'LOBBY') throw new GameError('La partida no ha empezado');
-      if (g.phase === 'FINALE') return;
-      if (!g.vote || g.vote.kind !== 'final') g.vote = null;
-      return enterFinale(g, out);
     case 'openSeal':
       if (g.settings.hostPlays || !isDirectorDevice) throw new GameError('El sobre lacrado solo lo puede abrir un director que no juega');
       g.sealOpened++;
@@ -613,17 +636,23 @@ const allSawRoles = (g: Game): boolean => {
   return active.length > 0 && active.every((x) => x.ready || !x.connected);
 };
 
+/** Arranca la ronda 1 si todos vieron su rol — nunca en pausa: setPhase
+ *  borra el tiempo muerto y la casa se reanudaría sin que nadie lo pidiera. */
+const maybeStartFirstRound = (g: Game, out: Outbox): void => {
+  if (g.pausedAt === null && allSawRoles(g)) startRound(g, 0, out);
+};
+
 export function playerAction(g: Game, p: PlayerState, a: PlayerAction, out: Outbox, hostOnline: boolean): void {
   if (p.left) throw new GameError('Has salido de la partida');
   switch (a.type) {
     case 'ready': {
       if (g.phase === 'ROLE_REVEAL') {
         p.ready = true;
-        if (allSawRoles(g)) startRound(g, 0, out);
+        maybeStartFirstRound(g, out);
         return;
       }
       // «Estamos listos»: cada uno marca la espera actual; al completarse, salta sola
-      if (g.pausedRemainingMs !== null) throw new GameError('Está en pausa');
+      if (g.pausedAt !== null) throw new GameError('Está en pausa');
       const key = readyKey(g);
       if (!key) throw new GameError('Ahora no hay nada que confirmar');
       p.readyFor = key;
@@ -1007,7 +1036,7 @@ export function leavePlayer(g: Game, p: PlayerState, out: Outbox): void {
   }
   announce(g, `${p.name} se ha ido a dormir.`, 'info');
   // Cerramos lo que estuviera esperando por este jugador
-  if (g.phase === 'ROLE_REVEAL' && allSawRoles(g)) return startRound(g, 0, out);
+  if (g.phase === 'ROLE_REVEAL' && allSawRoles(g) && g.pausedAt === null) return startRound(g, 0, out);
   if (g.phase === 'CHALLENGE' && g.challenge) {
     const c = g.challenge;
     const waiting = c.status === 'running' || c.status === 'voting';
@@ -1023,7 +1052,7 @@ export function leavePlayer(g: Game, p: PlayerState, out: Outbox): void {
  *  desbloquea las esperas que ya no necesitan su input: sin esto, un móvil que
  *  se apaga justo tras el último "listo" dejaba la casa esperándole en vano. */
 export function onPlayerOffline(g: Game, out: Outbox): void {
-  if (g.phase === 'ROLE_REVEAL' && allSawRoles(g)) startRound(g, 0, out);
+  if (g.phase === 'ROLE_REVEAL') maybeStartFirstRound(g, out);
   // Un móvil caído no puede confirmar, así que tampoco puede bloquear el «estamos listos»
   maybeAdvanceAllReady(g, out);
 }

@@ -1,9 +1,9 @@
 import { Toasts } from '../components/cards.tsx';
 import { GIcon } from '../lib/icons.tsx';
 import { Button } from '../components/ui.tsx';
-import { GameContext, useGameConnection } from '../lib/net.ts';
+import { GameContext, pausedMsFor, useGameConnection } from '../lib/net.ts';
 import { navigate } from '../lib/router.ts';
-import { ReactionsOverlay, Stage } from './Director.tsx';
+import { BlackoutOverlay, ReactionsOverlay, Stage } from './Director.tsx';
 import { LoadingHouse } from './Player.tsx';
 
 /** Modo espectador: la TV de la casa sin ser jugador. Solo datos públicos — ningún secreto sale del servidor. */
@@ -26,6 +26,7 @@ export function WatchScreen({ code }: { code: string }) {
     <GameContext.Provider value={conn}>
       <main className="director director--tv">
         <div className="director__stage">
+          {conn.view.event?.blackout && conn.view.event.endsAt && <BlackoutOverlay endsAt={conn.view.event.endsAt} pausedMs={pausedMsFor(conn.view, conn.view.event.endsAt)} />}
           <div className="director__bar">
             <span className="display director__brand"><GIcon id="casa" size={20} /> La Casa Rural</span>
             <span className="chip">Casa {conn.view.code}</span>

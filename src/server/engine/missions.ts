@@ -147,9 +147,15 @@ function suspectTargets(def: SuspectTaskDef): number {
 }
 
 function assignSuspectTask(g: Game, p: PlayerState, out: Outbox): void {
-  const pool = gameContent(g).suspect.filter((d) => !g.missions.some((m) => m.playerId === p.id && m.missionId === `suspect:${d.id}`));
-  const def = pick(pool.length ? pool : gameContent(g).suspect);
-  if (!def) return; // el anfitrión desactivó todas las tareas sospechosas
+  const pool = gameContent(g).suspect.filter(
+    (d) => !g.missions.some((m) => m.playerId === p.id && m.missionId === `suspect:${d.id}`),
+  );
+  // Misma regla que eligible(): sin gente suficiente para los {A}/{B}, el texto nacería con «???»
+  const fits = (d: SuspectTaskDef) => suspectTargets(d) <= activePlayers(g).length - 1;
+  const candidates = pool.filter(fits);
+  const fallback = gameContent(g).suspect.filter(fits);
+  if (!candidates.length && !fallback.length) return; // el anfitrión desactivó todas las tareas sospechosas
+  const def = pick(candidates.length ? candidates : fallback);
   const targets = chooseTargets(g, p, suspectTargets(def));
   g.missions.push({
     id: shortId(),
@@ -177,8 +183,9 @@ export function dealCoupleMission(g: Game, out: Outbox, force = false): void {
   const active = activePlayers(g);
   if (active.length < 4 || (!force && !chance(COUPLE_CHANCE))) return;
   const pool = gameContent(g).couple.filter((d) => !d.trio && !g.missions.some((m) => m.missionId === `couple:${d.id}`));
-  const def = pick(pool.length ? pool : gameContent(g).couple.filter((d) => !d.trio));
-  if (!def) return; // sin misiones en pareja disponibles (todas usadas o desactivadas)
+  const candidates = pool.length ? pool : gameContent(g).couple.filter((d) => !d.trio);
+  if (!candidates.length) return; // sin misiones en pareja disponibles (todas usadas o desactivadas)
+  const def = pick(candidates);
   const [a, b] = shuffle(active);
   // Los {A}/{B} del texto son terceros, no la pareja
   const others = shuffle(active.filter((p) => p.id !== a.id && p.id !== b.id));
@@ -211,8 +218,9 @@ export function dealCorroMission(g: Game, out: Outbox, force = false): void {
   const active = activePlayers(g);
   if (active.length < 6 || (!force && !chance(CORRO_CHANCE))) return;
   const pool = gameContent(g).couple.filter((d) => d.trio && !g.missions.some((m) => m.missionId === `corro:${d.id}`));
-  const def = pick(pool.length ? pool : gameContent(g).couple.filter((d) => d.trio));
-  if (!def) return;
+  const candidates = pool.length ? pool : gameContent(g).couple.filter((d) => d.trio);
+  if (!candidates.length) return;
+  const def = pick(candidates);
   const trio = shuffle(active).slice(0, 3);
   const others = shuffle(active.filter((p) => !trio.some((t) => t.id === p.id)));
   const targets = others.slice(0, new Set(def.text.match(/\{[AB]\}/g) ?? []).size).map((p) => p.id);

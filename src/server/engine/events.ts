@@ -3,7 +3,7 @@ import { gameContent, type EventDef } from '../content.ts';
 import { deliverClue, randomClue } from './clues.ts';
 import { assignMission } from './missions.ts';
 import { chance, pick, sample } from './rng.ts';
-import { type Game, type Outbox, activePlayers, announce, currentPlan, earn, getPlayer, isCuco, nameOf, toast } from './state.ts';
+import { type Game, type Outbox, activePlayers, announce, currentPlan, earn, gameNow, getPlayer, isCuco, nameOf, toast } from './state.ts';
 
 const EVENT_CHANCE = { clasico: 0.5, caos: 0.9, sofa: 0.45 } as const;
 
@@ -31,7 +31,9 @@ export function applyEvent(g: Game, eventId: string, out: Outbox): void {
   const def = gameContent(g).eventById.get(eventId);
   if (!def) throw new Error(`Evento desconocido ${eventId}`);
   g.used.events.push(def.id);
-  const now = Date.now();
+  // Reloj de la casa: un evento lanzado durante el tiempo muerto cuenta desde el
+  // punto congelado — al reanudar, resume lo desplaza y conserva su duración exacta
+  const now = gameNow(g);
   const effect = def.effect;
   g.event = { id: def.id, endsAt: effect.type === 'rule' || effect.type === 'lightning' || effect.type === 'auction' || effect.type === 'truce' || effect.type === 'blackout' ? now + effect.durationSec * 1000 : null };
   g.rounds[g.roundIndex]?.eventIds.push(def.id);
@@ -158,7 +160,10 @@ export function resolveAuction(g: Game, out: Outbox): void {
   const auction = g.auction;
   if (!auction) return;
   g.auction = null;
-  if (g.event) g.event = { ...g.event, endsAt: null };
+  // Solo apagamos el banner si sigue siendo EL de la subasta: si el director lanzó
+  // otro evento por encima, su cuenta atrás es de ese evento, no de la puja
+  const isAuctionEvent = g.event && gameContent(g).eventById.get(g.event.id)?.effect.type === 'auction';
+  if (isAuctionEvent) g.event = { ...g.event!, endsAt: null };
   const bids = Object.entries(auction.bids)
     .map(([playerId, b]) => ({ playerId, amount: b.amount, at: b.at }))
     .sort((a, b) => b.amount - a.amount || a.at - b.at); // empate: puja antes, gana antes

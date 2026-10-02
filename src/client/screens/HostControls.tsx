@@ -31,6 +31,7 @@ export function HostControls({ compact }: { compact?: boolean }) {
   const [showSecrets, setShowSecrets] = useState(false);
   if (!h) return null;
   const c = view.challenge;
+  const paused = view.pausedAt !== null;
   const hasTimer = view.phaseEndsAt !== null || view.pausedRemainingMs !== null;
   const participants = view.players.filter((p) => c?.participants.includes(p.id));
   const session = getSession(view.code);
@@ -65,9 +66,9 @@ export function HostControls({ compact }: { compact?: boolean }) {
         </div>
       )}
 
-      {hasTimer && (
+      {(view.phase !== 'LOBBY' || paused) && (
         <div className="hostctl__timer">
-          {view.pausedRemainingMs !== null ? (
+          {paused ? (
             <Button small variant="safe" onClick={() => run({ type: 'resume' })} disabled={busy}>
               <Play size={18} weight="fill" /> Seguir
             </Button>
@@ -76,12 +77,16 @@ export function HostControls({ compact }: { compact?: boolean }) {
               <Pause size={18} weight="fill" /> Pausa
             </Button>
           )}
-          <Button small variant="ghost" onClick={() => run({ type: 'extend', seconds: 30 })} disabled={busy}>
-            +30 s
-          </Button>
-          <Button small variant="ghost" onClick={() => run({ type: 'extend', seconds: 60 })} disabled={busy}>
-            +1 min
-          </Button>
+          {hasTimer && (
+            <>
+              <Button small variant="ghost" onClick={() => run({ type: 'extend', seconds: 30 })} disabled={busy}>
+                +30 s
+              </Button>
+              <Button small variant="ghost" onClick={() => run({ type: 'extend', seconds: 60 })} disabled={busy}>
+                +1 min
+              </Button>
+            </>
+          )}
         </div>
       )}
 

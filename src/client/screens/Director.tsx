@@ -96,7 +96,7 @@ function DirectorApp() {
 
 /** El apagón: la pantalla de la casa se apaga del todo. Solo queda una brasa
  *  parpadeando — lo que pase en la habitación, la tele no lo ve. */
-function BlackoutOverlay({ endsAt, pausedMs }: { endsAt: number; pausedMs: number | null }) {
+export function BlackoutOverlay({ endsAt, pausedMs }: { endsAt: number; pausedMs: number | null }) {
   return (
     <div className="blackout" role="status" aria-label="Apagón: la casa se ha quedado a oscuras">
       <span className="blackout__ember" aria-hidden>🔥</span>

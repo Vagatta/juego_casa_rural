@@ -196,7 +196,9 @@ export interface Game {
   settings: GameSettings;
   phase: Phase;
   phaseEndsAt: number | null;
+  /** Timer de fase guardado al pausar (null = pausa sin timer en marcha) */
   pausedRemainingMs: number | null;
+  /** Flag de pausa: !== null ⇔ el tiempo de juego está congelado en este instante */
   pausedAt: number | null;
   players: PlayerState[];
   roundIndex: number;
@@ -297,7 +299,7 @@ export const currentPlan = (g: Game): RoundPlan | null => g.plan[g.roundIndex] ?
  *  plazos internos (subasta, tregua, relámpago, escondite del código) no avanzan.
  *  Los que miden cosas del mundo real — gracia de reconexión, reclamo del director —
  *  deben seguir usando Date.now(). */
-export const gameNow = (g: Game): number => (g.pausedRemainingMs !== null ? (g.pausedAt ?? Date.now()) : Date.now());
+export const gameNow = (g: Game): number => g.pausedAt ?? Date.now();
 export const isLastRound = (g: Game): boolean => g.roundIndex >= g.plan.length - 1;
 
 export function assertPhase(g: Game, ...phases: Phase[]): void {

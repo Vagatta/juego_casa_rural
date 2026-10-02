@@ -54,6 +54,8 @@ function ReadyBar() {
   const up = view.readyUp;
   const me = view.me;
   if (!up || !me || me.left) return null;
+  // En pausa el servidor rechaza el «listo»: enseñamos el estado, no un botón roto
+  if (view.pausedAt !== null) return <p className="muted center">Tiempo muerto — la casa está en pausa.</p>;
   return (
     <div className="readyup">
       {up.mine ? (
