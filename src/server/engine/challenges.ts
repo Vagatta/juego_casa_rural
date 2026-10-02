@@ -283,7 +283,9 @@ export function finalizeChallenge(g: Game, out: Outbox): void {
           reward(g, out, [id], hits * 20, `${hits} respuesta${hits > 1 ? 's' : ''} correcta${hits > 1 ? 's' : ''}`);
         }
       }
-      const total = Math.max(1, c.participants.length * questions.length);
+      // Quien se fue no puede responder: contarle hundiría al equipo por un abandono
+      const present = c.participants.filter((id) => !getPlayer(g, id).left || answers[id]).length;
+      const total = Math.max(1, present * questions.length);
       c.passed = correct / total >= 0.6;
       if (c.passed) reward(g, out, c.participants, def.reward, 'Prueba superada');
       break;

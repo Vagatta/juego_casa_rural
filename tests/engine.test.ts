@@ -13,9 +13,9 @@ import { buildPlan, affectsCandles } from '../src/server/engine/plan.ts';
 import { roleDistribution } from '../src/server/engine/roles.ts';
 import { challengeById, gameContent } from '../src/server/content.ts';
 import { AUTO_DELAY_SEC, BET_PAYOUT, GANZUA_STEAL, MARKET_DISCOUNT, SHOP_PRICES, TAKEOVER_GRACE_MS } from '../src/shared/constants.ts';
-import { setupChallenge } from '../src/server/engine/challenges.ts';
+import { finalizeChallenge, setupChallenge } from '../src/server/engine/challenges.ts';
 import { priceOf } from '../src/server/engine/game.ts';
-import { newOutbox, type Game, type PlayerState } from '../src/server/engine/state.ts';
+import { getPlayer, newOutbox, type Game, type PlayerState } from '../src/server/engine/state.ts';
 import { GameStore } from '../src/server/store.ts';
 import type { GameSettings, ShopItemId } from '../src/shared/types.ts';
 
@@ -87,6 +87,7 @@ test('la despensa: cada objeto hace lo que promete', () => {
   laura.roleId = 'cuco_falsificador';
   for (const p of ps) p.roleId ??= 'curioso';
   const out = newOutbox();
+  g.plan = buildPlan(settings, 6); // con juicios por delante: el voto doble tiene sentido
   g.phase = 'INVESTIGATION';
   const buy = (p: PlayerState, item: ShopItemId, targetId?: string, amount?: number) =>
     playerAction(g, p, { type: 'buy', item, targetId, amount }, out, true);
@@ -768,8 +769,11 @@ test('padrino, casera y ermitaño: lazos, libros y silencio', () => {
   g.phase = 'VOTING';
   g.vote = { kind: 'juicio', status: 'open', picks: 1, isPublic: false, voters: ps.map((p) => p.id), ballots: {}, weights: {}, tally: null, suspects: [], bets: {} };
   for (const p of ps) if (p.id !== laura.id) playerAction(g, p, { type: 'vote', targets: [p.id === marcos.id ? carlos.id : marcos.id] }, out, true);
-  assert.equal(g.vote.status, 'revealed', 'el juicio no espera al Ermitaño');
+  // Si se cerrase sin ella, toda la casa sabría que Laura es la Ermitaña (huésped confirmada)
+  assert.equal(g.vote.status, 'open', 'el juicio espera a la Ermitaña como a cualquiera: no la delata');
   assert.equal(laura.stats.votesCast, 0, 'no ha votado');
+  advance(g, out); // el temporizador (o el director) cierra el juicio
+  assert.equal(g.vote.status, 'revealed');
 
   // Si vota, pierde el voto de silencio
   const f1 = computeFinale(g);
@@ -1053,4 +1057,104 @@ test('snapshot en pausa: al restaurar, los plazos internos no nacen caducados', 
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test('incompatibilidades de jugabilidad: roles, misiones, eventos y final', () => {
+  const settings: GameSettings = { durationMin: 60, difficulty: 'normal', mode: 'clasico', expectedPlayers: 6, hostPlays: true };
+  const out = newOutbox();
+
+  // ---- Turbo de 30 min: no hay juicios, así que ni Fotógrafa ni Ermitaño
+  assert.ok(buildPlan({ ...settings, durationMin: 30 }, 12).every((r) => !r.hasJudgment), 'el turbo no tiene juicios');
+  for (let i = 0; i < 40; i++) {
+    const roles = roleDistribution(12, false);
+    assert.ok(!roles.includes('fotografa') && !roles.includes('ermitano'), 'sin juicios no salen oficios de juicio');
+  }
+  const turbo = createGame('TESTT', { ...settings, durationMin: 30 });
+  ['Ana', 'Carlos', 'Diego', 'Laura', 'Marcos', 'Marta'].forEach((n) => addPlayer(turbo, n, '🐓'));
+  startGame(turbo, out);
+  assert.ok(turbo.players.every((p) => p.roleId !== 'fotografa' && p.roleId !== 'ermitano'));
+  turbo.phase = 'INVESTIGATION';
+  turbo.roundIndex = 0;
+  turbo.players[0].coins = 500;
+  assert.throws(() => playerAction(turbo, turbo.players[0], { type: 'buy', item: 'voto_doble' }, out, true), /ningún juicio/, 'no se vende un voto doble que nunca se usará');
+
+  // ---- Misiones según rol y horizonte
+  const g: Game = createGame('TESTI', settings);
+  const ps = ['Ana', 'Carlos', 'Diego', 'Laura', 'Marcos', 'Marta'].map((n) => addPlayer(g, n, '🐓'));
+  const [ana, carlos, diego, laura] = ps;
+  ana.roleId = 'insomne';
+  carlos.roleId = 'cuco_falsificador';
+  diego.roleId = 'cuco_carterista';
+  laura.roleId = 'ermitano';
+  for (const p of ps) p.roleId ??= 'vecino';
+  g.cucoCount = 2;
+  g.plan = buildPlan(settings, 6);
+  g.roundIndex = 1;
+  g.phase = 'ROUND_INTRO';
+
+  // El Ermitaño nunca recibe misiones que le obliguen a votar
+  for (let i = 0; i < 60; i++) {
+    g.missions = [];
+    g.used.missions = [];
+    dealMissions(g, out);
+    assert.ok(g.missions.filter((m) => m.playerId === laura.id).every((m) => !m.tags.includes('votes_self')), 'nada de votar para el Ermitaño');
+  }
+
+  // «Los Cucos traman algo» no le chiva al Insomne quiénes son los Cucos
+  g.missions = [];
+  const before = g.clues.filter((c) => c.recipientId === ana.id).length;
+  applyEvent(g, 'e22', out);
+  assert.ok(g.missions.some((m) => m.playerId === carlos.id), 'los Cucos reciben su misión');
+  assert.equal(g.clues.filter((c) => c.recipientId === ana.id).length, before, 'el Insomne no oye a los Cucos');
+
+  // Misión relámpago: solo misiones cumplibles en 90 segundos
+  for (let i = 0; i < 20; i++) {
+    g.missions = [];
+    g.used.missions = [];
+    g.used.events = [];
+    applyEvent(g, 'e53', out);
+    const bolts = g.missions.filter((m) => m.expiresAt);
+    assert.ok(bolts.every((m) => !m.tags.some((t) => ['needs_judgment', 'needs_ritual', 'needs_challenge'].includes(t))), 'nada de «el próximo juicio» con 90 segundos');
+  }
+
+  // Última ronda ya jugada: nada de «la próxima prueba» ni «el próximo Ritual»
+  g.roundIndex = g.plan.length - 1;
+  g.phase = 'INVESTIGATION';
+  for (let i = 0; i < 40; i++) {
+    g.missions = [];
+    g.used.missions = [];
+    dealMissions(g, out);
+    assert.ok(g.missions.every((m) => !m.tags.includes('needs_challenge') && !m.tags.includes('needs_ritual')), 'sin rondas por delante no hay misiones de prueba futura');
+  }
+
+  // ---- Final: un Cuco que abandona no regala puntos a su bando
+  g.phase = 'FINAL_ACCUSATION';
+  g.vote = { kind: 'final', status: 'open', picks: 2, isPublic: false, voters: ps.map((p) => p.id), ballots: {}, weights: {}, tally: null, suspects: [], bets: {} };
+  g.velas = 2;
+  g.grietas = 2;
+  diego.left = true;
+  const f1 = computeFinale(g);
+  assert.equal(f1.balance.cucos, 2 + 2, 'solo el Cuco que sigue en la casa cuenta como impune');
+  diego.left = false;
+
+  // «Más de la mitad de la casa»: dos acusaciones en una casa de seis no desenmascaran
+  g.vote.ballots = { [ana.id]: [carlos.id], [laura.id]: [carlos.id] };
+  assert.deepEqual(computeFinale(g).unmasked, [], 'dos de seis no es mayoría de la casa');
+  g.vote.ballots = { [ana.id]: [carlos.id], [laura.id]: [carlos.id], [ps[4].id]: [carlos.id], [ps[5].id]: [carlos.id] };
+  assert.deepEqual(computeFinale(g).unmasked, [carlos.id], 'cuatro de seis sí');
+
+  // ---- Quiz: quien abandona no hunde al equipo con sus respuestas en blanco
+  g.phase = 'CHALLENGE';
+  diego.left = false;
+  const quizDef = content.challenges.find((d) => d.kind === 'quiz' && d.participants === 'all')!;
+  const c = setupChallenge(g, quizDef.id, out);
+  g.challenge = c;
+  c.status = 'running';
+  const qs = c.quiz!.questionIds.map((id) => gameContent(g).quizById.get(id)!);
+  const right = qs.map((q) => q.answer);
+  const quitters = c.participants.slice(0, Math.ceil(c.participants.length / 2));
+  for (const id of quitters) getPlayer(g, id).left = true;
+  for (const id of c.participants.filter((x) => !quitters.includes(x))) c.quiz!.answers[id] = right;
+  finalizeChallenge(g, out);
+  assert.equal(c.passed, true, 'los que siguen acertaron todo: superada');
 });

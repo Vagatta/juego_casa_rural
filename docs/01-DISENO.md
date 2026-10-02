@@ -128,11 +128,11 @@ El sorteo de oficios es entre Manitas, Fotógrafa, Chismoso, Contable, Insomne y
 
 |**La Sobremesa 🛋️** (evento): la casa manda a todos al sofá un rato — mientras dura la pausa no se puede lanzar ¡PILLADO! ni jugar al doble o nada. El respiro que necesita una noche de 90 minutos.
 
-|**El Padrino 🤵** (rol): al empezar apadrina a alguien en secreto. Si su ahijado es un Cuco y sale impune, el Padrino gana con él (+120 🪙). Un Cuco nunca sabe si tiene padrino.
+|**El Padrino 🤵** (rol): al empezar apadrina a alguien en secreto. Si su ahijado es un Cuco y sale impune, el Padrino gana con él (+180 🪙). Un Cuco nunca sabe si tiene padrino.
 
 |**La Casera 📓** (rol pasivo): lleva el libro de cuentas — cada compra en la Despensa le llega como chisme privado ("X se ha gastado Y 🪙 en…"). Sabe quién se puede permitir qué antes que nadie.
 
-|**El Ermitaño 🏔️** (rol pasivo): gana +80 🪙 extra al final si no ha votado en **ningún** juicio — la casa no espera su voto para cerrar los juicios. Silencio rentable, pero cada vez que habla, pierde.
+|**El Ermitaño 🏔️** (rol pasivo): gana +120 🪙 extra al final si no ha votado en **ningún** juicio. El juicio le espera como a cualquiera (hasta el temporizador): si se cerrase sin él, la casa sabría quién es — un huésped confirmado — y nadie podría fingir su silencio. Silencio rentable, pero cada vez que habla, pierde. No sale en noches sin juicios (turbo de 30 min), igual que la Fotógrafa.
 
 |**El corro 🔗** (misiones de tres): la casa reparte la misma misión a tres cómplices a la vez — cada uno ve quiénes son los otros dos. Pacto grupal o pillada colectiva.
 

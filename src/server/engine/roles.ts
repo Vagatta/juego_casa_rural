@@ -10,7 +10,10 @@ export function cucoCountFor(n: number): number {
 }
 
 /** Reparto de roles según el número de jugadores (ver docs/01-DISENO.md §2). */
-export function roleDistribution(n: number): string[] {
+/** Oficios que solo funcionan si la noche tiene algún juicio. */
+const NEEDS_JUDGMENT = new Set(['fotografa', 'ermitano']);
+
+export function roleDistribution(n: number, hasJudgments = true): string[] {
   const cucos = cucoCountFor(n);
   // Con un solo Cuco, que tenga habilidad activa: un Doble solitario deja la partida sin pistas fiables.
   const cucoPool = cucos === 1 ? ['cuco_falsificador', 'cuco_carterista'] : ['cuco_falsificador', 'cuco_carterista', 'cuco_doble'];
@@ -24,14 +27,16 @@ export function roleDistribution(n: number): string[] {
 
   const rest = n - roles.length;
   // La Abuela siempre está en mesas grandes; el resto de oficios sale al azar para variar
-  const specials = ['abuela', ...shuffle(['manitas', 'fotografa', 'chismoso', 'contable', 'insomne', 'notario', 'buscavidas', 'padrino', 'casera', 'ermitano'])];
+  // Sin juicios (turbo de 30 min) la Fotógrafa no tiene qué revelar y el Ermitaño cobraría su silencio gratis
+  const trades = ['manitas', 'fotografa', 'chismoso', 'contable', 'insomne', 'notario', 'buscavidas', 'padrino', 'casera', 'ermitano'].filter((r) => hasJudgments || !NEEDS_JUDGMENT.has(r));
+  const specials = ['abuela', ...shuffle(trades)];
   for (let i = 0; i < rest; i++) roles.push(specials[i] ?? 'vecino');
   return roles;
 }
 
 export function assignRoles(g: Game): void {
   const players = shuffle(activePlayers(g));
-  const roles = roleDistribution(players.length);
+  const roles = roleDistribution(players.length, g.plan.some((r) => r.hasJudgment));
   players.forEach((p, i) => {
     p.roleId = roles[i];
     p.cerillas = isCuco(p) ? CERILLAS_PER_CUCO : 0;

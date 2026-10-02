@@ -36,7 +36,7 @@ import {
 import { deliverClue, forgedNote, investigate, randomClue, recipe, shopClueTruth, voteReveal } from './clues.ts';
 import { applyEvent, resolveAuction, rollRoundEvent } from './events.ts';
 import { FINALE_STEPS, computeFinale } from './finale.ts';
-import { claimMission, dealMissions, discardMission, pillar } from './missions.ts';
+import { claimMission, dealMissions, discardMission, futureJudgment, pillar } from './missions.ts';
 import { buildPlan, needsRitual } from './plan.ts';
 import { gameContent } from '../content.ts';
 import { chance, secretToken, shortId, shuffle } from './rng.ts';
@@ -159,8 +159,9 @@ export function startGame(g: Game, out: Outbox): void {
   if (active.length < MIN_PLAYERS) throw new GameError(`Hacen falta al menos ${MIN_PLAYERS} jugadores`);
   // Quien salió en la sala antes de empezar no cuenta para nada
   g.players = g.players.filter((p) => !p.left);
-  assignRoles(g);
+  // El plan va antes que los roles: sin juicios (turbo) hay oficios que no tienen sentido
   g.plan = buildPlan(g.settings, active.length, gameContent(g));
+  assignRoles(g);
   g.startedAt = Date.now();
   g.players.forEach((p) => { p.ready = false; p.readyFor = null; });
   setPhase(g, 'ROLE_REVEAL');
@@ -806,8 +807,9 @@ function castVote(g: Game, p: PlayerState, targets: string[]): void {
       p.inventory.voto_doble--;
       v.weights[p.id] = (v.weights[p.id] ?? 1) + 1;
     }
-    // El Ermitaño guarda silencio: el juicio no le espera si él no vota
-    if (v.voters.every((id) => v.ballots[id] || getPlayer(g, id).left || roleOf(getPlayer(g, id))?.id === 'ermitano')) revealJudgment(g);
+    // El juicio también espera al Ermitaño: cerrar sin él delataría ante toda la
+    // casa quién es (un huésped confirmado) y nadie podría fingir su silencio
+    if (v.voters.every((id) => v.ballots[id] || getPlayer(g, id).left)) revealJudgment(g);
   }
 }
 
@@ -879,6 +881,7 @@ function buy(g: Game, p: PlayerState, a: Extract<PlayerAction, { type: 'buy' }>,
       break;
     case 'voto_doble':
       if (p.inventory.voto_doble >= 1) throw new GameError('Ya tienes un voto doble');
+      if (!futureJudgment(g)) throw new GameError('Ya no queda ningún juicio esta noche');
       spend(p, price);
       p.inventory.voto_doble++;
       break;
@@ -1046,7 +1049,7 @@ export function leavePlayer(g: Game, p: PlayerState, out: Outbox): void {
     if (waiting && c.kind !== 'physical' && c.kind !== 'code_hunt' && pendingResponders(g, c).length === 0) finalizeChallenge(g, out);
   }
   if (g.phase === 'RITUAL' && g.ritual?.status === 'open' && g.ritual.participants.every((id) => g.ritual!.choices[id] || getPlayer(g, id).left)) revealRitual(g, out);
-  if (g.phase === 'VOTING' && g.vote?.status === 'open' && g.vote.voters.every((id) => g.vote!.ballots[id] || getPlayer(g, id).left || roleOf(getPlayer(g, id))?.id === 'ermitano')) revealJudgment(g);
+  if (g.phase === 'VOTING' && g.vote?.status === 'open' && g.vote.voters.every((id) => g.vote!.ballots[id] || getPlayer(g, id).left)) revealJudgment(g);
   maybeAdvanceAllReady(g, out);
 }
 

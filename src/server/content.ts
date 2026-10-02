@@ -69,7 +69,7 @@ const eventEffectSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('mission_wave') }),
   z.object({ type: z.literal('lightning'), durationSec: z.number().int().positive() }),
   z.object({ type: z.literal('auction'), durationSec: z.number().int().positive() }),
-  z.object({ type: z.literal('secret_intel'), count: z.number().int().positive().optional() }),
+  z.object({ type: z.literal('secret_intel'), count: z.number().int().positive().optional(), mixed: z.boolean().optional() }),
   z.object({ type: z.literal('snitch') }),
   z.object({ type: z.literal('inheritance'), percent: z.number().positive().max(100) }),
   z.object({ type: z.literal('laden_vote') }),

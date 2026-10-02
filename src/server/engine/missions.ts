@@ -15,6 +15,7 @@ import {
 import type { MissionDifficulty } from '../../shared/types.ts';
 import { content, gameContent, type MissionDef, type SuspectTaskDef } from '../content.ts';
 import { deliverClue } from './clues.ts';
+import { needsRitual } from './plan.ts';
 import { chance, pick, shortId, shuffle, weighted } from './rng.ts';
 import {
   type Game,
@@ -27,6 +28,7 @@ import {
   earn,
   factionOf,
   gameNow,
+  isCuco,
   toast,
 } from './state.ts';
 
@@ -42,19 +44,48 @@ export const missionSlots = (p: PlayerState): number => (p.roleId === 'vecino' ?
 
 const activeMissionsOf = (g: Game, playerId: string) => g.missions.filter((m) => m.playerId === playerId && m.status === 'active');
 
-function futureJudgment(g: Game): boolean {
+export function futureJudgment(g: Game): boolean {
   // El juicio de la ronda actual cuenta si todavía no se ha celebrado
   const from = g.phase === 'VOTING' || g.phase === 'ROUND_RESULT' ? g.roundIndex + 1 : Math.max(0, g.roundIndex);
   return g.plan.slice(from).some((r) => r.hasJudgment);
 }
 
-function eligible(g: Game, p: PlayerState, def: MissionDef, factionOnly?: string): boolean {
+/** Rondas cuya prueba (y su posible Ritual) aún no se ha jugado. */
+function upcomingRounds(g: Game) {
+  const from = g.phase === 'ROUND_INTRO' || g.phase === 'CHALLENGE' ? Math.max(0, g.roundIndex) : g.roundIndex + 1;
+  return g.plan.slice(from);
+}
+
+const futureRitual = (g: Game): boolean =>
+  upcomingRounds(g).some((r) => {
+    const def = gameContent(g).challengeById.get(r.challengeId);
+    return !!def && needsRitual(def);
+  });
+
+/** Misiones que dependen de un momento futuro: en un relámpago de 90 s son imposibles. */
+const HORIZON_TAGS = ['needs_judgment', 'needs_ritual', 'needs_challenge'];
+
+interface AssignOpts {
+  factionOnly?: string;
+  /** Solo misiones cumplibles ya (misión relámpago). */
+  quick?: boolean;
+  /** Sin aviso al Insomne: el reparto es selectivo y sus notas delatarían a quién. */
+  quiet?: boolean;
+}
+
+function eligible(g: Game, p: PlayerState, def: MissionDef, opts: AssignOpts): boolean {
   const faction = factionOf(p);
-  if (factionOnly && def.faction !== factionOnly) return false;
+  if (opts.factionOnly && def.faction !== opts.factionOnly) return false;
   if (def.faction !== 'any' && def.faction !== faction) return false;
   if (def.targets > activePlayers(g).length - 1) return false;
+  if (opts.quick && def.tags.some((t) => HORIZON_TAGS.includes(t))) return false;
   if (def.tags.includes('needs_judgment') && !futureJudgment(g)) return false;
-  if (def.tags.includes('needs_partner') && g.cucoCount < 2) return false;
+  if (def.tags.includes('needs_ritual') && !futureRitual(g)) return false;
+  if (def.tags.includes('needs_challenge') && !upcomingRounds(g).length) return false;
+  // Misiones que obligan a votar chocan con el voto de silencio del Ermitaño
+  if (def.tags.includes('votes_self') && p.roleId === 'ermitano') return false;
+  // Compañero presente, no solo repartido: un Cuco cuyo socio se fue no tiene a quién cubrir
+  if (def.tags.includes('needs_partner') && activePlayers(g).filter(isCuco).length < 2) return false;
   if (g.missions.some((m) => m.playerId === p.id && m.missionId === def.id)) return false;
   const active = g.missions.filter((m) => m.status === 'active');
   for (const tag of def.tags) {
@@ -102,11 +133,11 @@ function customDefs(g: Game): MissionDef[] {
   });
 }
 
-export function assignMission(g: Game, p: PlayerState, out: Outbox, factionOnly?: string): MissionState | null {
+export function assignMission(g: Game, p: PlayerState, out: Outbox, opts: AssignOpts = {}): MissionState | null {
   const weights = DIFFICULTY_WEIGHTS[g.settings.difficulty];
   const all = [...gameContent(g).missions, ...customDefs(g)];
-  const unusedFirst = all.filter((d) => !g.used.missions.includes(d.id) && eligible(g, p, d, factionOnly));
-  const pool = unusedFirst.length ? unusedFirst : all.filter((d) => eligible(g, p, d, factionOnly));
+  const unusedFirst = all.filter((d) => !g.used.missions.includes(d.id) && eligible(g, p, d, opts));
+  const pool = unusedFirst.length ? unusedFirst : all.filter((d) => eligible(g, p, d, opts));
   // Las misiones propias de la facción y las del grupo pesan más: para eso las escribió el anfitrión
   const def = weighted(pool, (d) => weights[d.difficulty] * (d.tags.includes('custom') || d.faction !== 'any' ? 3 : 1));
   if (!def) return null;
@@ -130,7 +161,7 @@ export function assignMission(g: Game, p: PlayerState, out: Outbox, factionOnly?
   g.used.missions.push(def.id);
   toast(out, p.id, { text: 'Nueva misión secreta', tone: 'special', private: true, sound: 'mission' });
   // El Insomne oye crujir el pasillo: sabe a quién le ha llegado una misión
-  for (const s of activePlayers(g).filter((o) => o.roleId === 'insomne' && o.id !== p.id)) {
+  if (!opts.quiet) for (const s of activePlayers(g).filter((o) => o.roleId === 'insomne' && o.id !== p.id)) {
     deliverClue(g, out, s, 'chisme', { text: `Ruido en el pasillo: a ${p.name} le ha llegado una misión nueva.`, truth: 'true' });
   }
   return mission;

@@ -17,15 +17,20 @@ export function computeFinale(g: Game): Omit<FinaleView, 'step' | 'roles'> {
   const cucos = everyone.filter(isCuco);
   const vote = g.vote?.kind === 'final' ? g.vote : null;
   const ballots = vote?.ballots ?? {};
-  const voterCount = Object.keys(ballots).length;
+  // «Más de la mitad de la casa»: cuenta quien podía acusar y sigue dentro, haya votado o no.
+  // Contar solo las papeletas emitidas dejaba que dos votos desenmascarasen en una casa de diez.
+  const houseSize = vote ? vote.voters.filter((id) => !g.players.find((p) => p.id === id)?.left).length : 0;
 
   const counts = new Map<string, number>();
   for (const targets of Object.values(ballots)) for (const t of targets) counts.set(t, (counts.get(t) ?? 0) + 1);
   const accusation = [...counts.entries()].map(([id, votes]) => ({ id, votes })).sort((a, b) => b.votes - a.votes);
-  const unmasked = cucos.filter((c) => (counts.get(c.id) ?? 0) > voterCount / 2).map((c) => c.id);
+  const unmasked = cucos.filter((c) => (counts.get(c.id) ?? 0) > houseSize / 2).map((c) => c.id);
+  // Un Cuco que se fue no puede ser acusado (castVote solo admite activos): contarlo
+  // como «impune» premiaría a su bando por abandonar. Ni suma ni resta.
+  const hidden = cucos.filter((c) => !c.left && !unmasked.includes(c.id));
 
   const huespedes = g.velas + 2 * unmasked.length;
-  const cucoScore = g.grietas + 2 * (cucos.length - unmasked.length);
+  const cucoScore = g.grietas + 2 * hidden.length;
   const winner: 'huespedes' | 'cucos' = huespedes > cucoScore ? 'huespedes' : 'cucos';
 
   const topAccused = accusation.length && accusation.filter((a) => a.votes === accusation[0].votes).length === 1 ? accusation[0].id : null;
@@ -38,7 +43,7 @@ export function computeFinale(g: Game): Omit<FinaleView, 'step' | 'roles'> {
   for (const p of everyone) {
     const f = factionOf(p);
     if ((winner === 'huespedes' && f === 'huesped') || (winner === 'cucos' && f === 'cuco')) add(p.id, FINAL_BONUS.winningFaction);
-    if (isCuco(p) && !unmasked.includes(p.id)) add(p.id, FINAL_BONUS.hiddenCuco);
+    if (hidden.includes(p)) add(p.id, FINAL_BONUS.hiddenCuco);
     const named = (ballots[p.id] ?? []).filter((t) => cucos.some((c) => c.id === t)).length;
     if (named) {
       add(p.id, named * FINAL_BONUS.correctAccusation);
@@ -50,8 +55,9 @@ export function computeFinale(g: Game): Omit<FinaleView, 'step' | 'roles'> {
   // El Buscavidas no es Cuco ni le debe nada a la casa: gana si acaba entre
   // los 3 más ricos, contando solo la pasta ganada a pulso (antes de los premios)
   const busca = everyone.find((p) => p.roleId === 'buscavidas');
+  // Solo compite con quien sigue en la casa: un ausente rico no le quita el podio
   const buscavidasWon =
-    busca && [...everyone].sort((a, b) => b.coins - a.coins).slice(0, 3).some((p) => p.id === busca.id) ? busca.id : null;
+    busca && !busca.left && everyone.filter((p) => !p.left).sort((a, b) => b.coins - a.coins).slice(0, 3).some((p) => p.id === busca.id) ? busca.id : null;
   if (buscavidasWon) add(buscavidasWon, FINAL_BONUS.buscavidas);
 
   // El Padrino apadrinó a alguien en secreto: si su ahijado era un Cuco que salió
@@ -59,6 +65,7 @@ export function computeFinale(g: Game): Omit<FinaleView, 'step' | 'roles'> {
   const padrino = everyone.find((p) => p.roleId === 'padrino');
   const padrinoWon =
     padrino?.ahijadoId &&
+    !padrino.left &&
     cucos.some((c) => c.id === padrino.ahijadoId && !c.left && !unmasked.includes(c.id))
       ? padrino.id
       : null;

@@ -82,7 +82,7 @@ export function applyEvent(g: Game, eventId: string, out: Outbox): void {
     case 'lightning':
       // Una misión cronometrada para cada uno: se apaga cuando cae el banner
       for (const p of active) {
-        const m = assignMission(g, p, out);
+        const m = assignMission(g, p, out, { quick: true });
         if (m) {
           m.expiresAt = now + effect.durationSec * 1000;
           if (!m.tags.includes(LIGHTNING_TAG)) m.tags.push(LIGHTNING_TAG);
@@ -90,7 +90,8 @@ export function applyEvent(g: Game, eventId: string, out: Outbox): void {
       }
       break;
     case 'secret_intel':
-      for (const p of sample(active, Math.min(active.length, effect.count ?? 1))) deliverClue(g, out, p, 'nota', randomClue(g, p, 'true'));
+      // `mixed`: el texto del evento avisa de que parte de las notas mienten
+      for (const p of sample(active, Math.min(active.length, effect.count ?? 1))) deliverClue(g, out, p, 'nota', randomClue(g, p, effect.mixed && chance(0.5) ? 'false' : 'true'));
       break;
     case 'snitch': {
       // El chivato: uno recibe una pista verdadera y OTRO sabe que él la recibió.
@@ -130,7 +131,8 @@ export function applyEvent(g: Game, eventId: string, out: Outbox): void {
       g.truceUntil = now + effect.durationSec * 1000;
       break;
     case 'cuco_mission':
-      active.filter(isCuco).forEach((p) => assignMission(g, p, out, 'cuco'));
+      // quiet: el Insomne recibiría una nota por cada Cuco — los desenmascararía a todos
+      active.filter(isCuco).forEach((p) => assignMission(g, p, out, { factionOnly: 'cuco', quiet: true }));
       break;
     case 'extra_cerilla':
       active.filter(isCuco).forEach((p) => {
