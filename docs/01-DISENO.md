@@ -50,6 +50,7 @@ Al final de la noche se pone todo en **La Balanza**.
 | �🐦 Cuco Falsificador | Cuco | **Falsificar**: deja una nota falsa bajo la puerta de alguien, acusando a quien elija. | 1 por ronda |
 | 🧤 Cuco Carterista | Cuco | **Mano larga**: roba 40 monedas a alguien sin pagar. | 1 por ronda |
 | 🎭 Cuco Doble | Cuco | **Doble cara** (pasivo): las investigaciones le ven como huésped. | Pasivo |
+| 🌒 Cuco Sonámbulo | Cuco | **Voto sonámbulo**: con un juicio abierto, su voto real va en secreto a quien elija; la papeleta visible (mano alzada, Fotógrafa, Mirilla) dice lo que votó. El descuadre entre papeletas y recuento es la pista. Solo con 2+ Cucos y noches con juicio. | 2 por partida |
 | 🧳 El Turista | Neutral | Gana si es el más señalado al final. Recibe misiones para parecer sospechoso. | - |
 
 Todos los Cucos tienen **2 cerillas** para apagar velas en el Ritual.
@@ -132,7 +133,7 @@ El sorteo de oficios es entre Manitas, Fotógrafa, Chismoso, Contable, Insomne y
 
 |**La Casera 📓** (rol pasivo): lleva el libro de cuentas — cada compra en la Despensa le llega como chisme privado ("X se ha gastado Y 🪙 en…"). Sabe quién se puede permitir qué antes que nadie.
 
-|**El Ermitaño 🏔️** (rol pasivo): gana +120 🪙 extra al final si no ha votado en **ningún** juicio. El juicio le espera como a cualquiera (hasta el temporizador): si se cerrase sin él, la casa sabría quién es — un huésped confirmado — y nadie podría fingir su silencio. Silencio rentable, pero cada vez que habla, pierde. No sale en noches sin juicios (turbo de 30 min), igual que la Fotógrafa.
+|**El Ermitaño 🏔️** (rol pasivo): gana +120 🪙 extra al final si no ha votado en **ningún** juicio. En el juicio cualquiera puede pulsar **«Me abstengo»** (cuenta como actuar y no rompe el silencio), así que el Ermitaño se esconde entre los que se abstienen y un Cuco puede fingir serlo. El juicio nunca se cierra solo por él: si lo hiciera, la casa sabría quién es. Silencio rentable, pero cada vez que habla, pierde. No sale en noches sin juicios (turbo de 30 min), igual que la Fotógrafa.
 
 |**El corro 🔗** (misiones de tres): la casa reparte la misma misión a tres cómplices a la vez — cada uno ve quiénes son los otros dos. Pacto grupal o pillada colectiva.
 

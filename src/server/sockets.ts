@@ -28,7 +28,8 @@ const playerActionSchema = z.discriminatedUnion('type', [
     guess: z.number().int().optional(),
   }),
   z.object({ type: z.literal('ritual'), choice: z.enum(['encender', 'apagar']) }),
-  z.object({ type: z.literal('vote'), targets: z.array(id).min(1).max(3) }),
+  // Lista vacía = abstención (solo en juicios; castVote lo valida)
+  z.object({ type: z.literal('vote'), targets: z.array(id).max(3) }),
   z.object({
     type: z.literal('buy'),
     item: z.enum(['pista', 'candado', 'voto_doble', 'ganzua', 'mirilla', 'sobre', 'coartada', 'altavoz', 'espejo', 'nota']),

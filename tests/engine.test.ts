@@ -17,6 +17,7 @@ import { finalizeChallenge, setupChallenge } from '../src/server/engine/challeng
 import { priceOf } from '../src/server/engine/game.ts';
 import { getPlayer, newOutbox, type Game, type PlayerState } from '../src/server/engine/state.ts';
 import { GameStore } from '../src/server/store.ts';
+import { buildView } from '../src/server/views.ts';
 import type { GameSettings, ShopItemId } from '../src/shared/types.ts';
 
 test('contenido suficiente y bien formado', () => {
@@ -1158,4 +1159,73 @@ test('incompatibilidades de jugabilidad: roles, misiones, eventos y final', () =
   for (const id of c.participants.filter((x) => !quitters.includes(x))) c.quiz!.answers[id] = right;
   finalizeChallenge(g, out);
   assert.equal(c.passed, true, 'los que siguen acertaron todo: superada');
+});
+
+test('abstención en el juicio y Cuco Sonámbulo', () => {
+  const settings: GameSettings = { durationMin: 60, difficulty: 'normal', mode: 'clasico', expectedPlayers: 6, hostPlays: true };
+  const g: Game = createGame('TESTS', settings);
+  const ps = ['Ana', 'Carlos', 'Diego', 'Laura', 'Marcos', 'Marta'].map((n) => addPlayer(g, n, '🐓'));
+  const [ana, carlos, diego, laura, marcos, marta] = ps;
+  carlos.roleId = 'cuco_sonambulo';
+  diego.roleId = 'cuco_falsificador';
+  laura.roleId = 'ermitano';
+  for (const p of ps) p.roleId ??= 'vecino';
+  g.cucoCount = 2;
+  g.plan = buildPlan(settings, 6);
+  g.roundIndex = 2;
+  const out = newOutbox();
+  const openJudgment = () => {
+    g.phase = 'VOTING';
+    g.vote = { kind: 'juicio', status: 'open', picks: 1, isPublic: true, voters: ps.map((p) => p.id), ballots: {}, weights: {}, tally: null, suspects: [], bets: {} };
+  };
+
+  // ---- El Sonámbulo solo camina con un juicio abierto
+  g.phase = 'INVESTIGATION';
+  assert.throws(() => playerAction(g, carlos, { type: 'ability', targets: [ana.id] }, out, true), /juicio abierto/);
+
+  // ---- Abstenerse: cuenta como «ha actuado», cierra el juicio y no rompe el silencio
+  openJudgment();
+  ana.inventory.voto_doble = 1;
+  playerAction(g, ana, { type: 'vote', targets: [] }, out, true);
+  assert.deepEqual(g.vote!.ballots[ana.id], [], 'la abstención queda registrada');
+  assert.equal(ana.inventory.voto_doble, 1, 'abstenerse no gasta el voto doble');
+  assert.equal(ana.stats.votesCast, 0);
+
+  // El Sonámbulo vota a Marcos en la papeleta pero su voto real va a Ana
+  playerAction(g, carlos, { type: 'vote', targets: [marcos.id] }, out, true);
+  playerAction(g, carlos, { type: 'ability', targets: [ana.id] }, out, true);
+  assert.throws(() => playerAction(g, carlos, { type: 'ability', targets: [diego.id] }, out, true), /Ya caminas/, 'una vez por juicio');
+  assert.equal(buildView(g, { audience: 'player', playerId: carlos.id, isHost: false, hostOnline: true }).vote!.mySecretVote, ana.id, 'él ve su voto real');
+  assert.equal(buildView(g, { audience: 'player', playerId: marta.id, isHost: false, hostOnline: true }).vote!.mySecretVote, null, 'nadie más lo ve');
+  assert.equal(buildView(g, { audience: 'director', playerId: null, isHost: true, hostOnline: true }).vote!.mySecretVote, null, 'ni la TV');
+
+  playerAction(g, diego, { type: 'vote', targets: [marcos.id] }, out, true);
+  playerAction(g, marcos, { type: 'vote', targets: [ana.id] }, out, true);
+  playerAction(g, marta, { type: 'vote', targets: [ana.id] }, out, true);
+  assert.equal(g.vote!.status, 'open', 'falta la Ermitaña');
+  playerAction(g, laura, { type: 'vote', targets: [] }, out, true);
+  assert.equal(g.vote!.status, 'revealed', 'con la Ermitaña abstenida, el juicio se cierra sin esperar al temporizador');
+  assert.equal(laura.stats.votesCast, 0, 'abstenerse no rompe el voto de silencio');
+
+  // Recuento: Ana 3 (Marcos, Marta y el voto real de Carlos), Marcos 1 (solo Diego)
+  const tally = Object.fromEntries(g.vote!.tally!.map((t) => [t.id, t.votes]));
+  assert.equal(tally[ana.id], 3);
+  assert.equal(tally[marcos.id], 1);
+  assert.deepEqual(g.vote!.suspects, [ana.id]);
+  // La papeleta visible (mano alzada, Fotógrafa, Mirilla) sigue diciendo Marcos: el descuadre es la pista
+  assert.deepEqual(g.lastJudgment![carlos.id], [marcos.id]);
+  const shown = buildView(g, { audience: 'player', playerId: marta.id, isHost: false, hostOnline: true }).vote!.result!.ballots!;
+  assert.deepEqual(shown.find((b) => b.voterId === carlos.id)!.targets, [marcos.id]);
+
+  // ---- En la Gran Acusación no hay abstención
+  g.phase = 'FINAL_ACCUSATION';
+  g.vote = { kind: 'final', status: 'open', picks: 2, isPublic: false, voters: ps.map((p) => p.id), ballots: {}, weights: {}, tally: null, suspects: [], bets: {} };
+  assert.throws(() => playerAction(g, ana, { type: 'vote', targets: [] }, out, true), /Elige/);
+  assert.throws(() => playerAction(g, carlos, { type: 'ability', targets: [ana.id] }, out, true), /juicio abierto/, 'el sonambulismo no llega a la Gran Acusación');
+
+  // ---- Reparto: el Sonámbulo nunca sale solo ni en noches sin juicio
+  for (let i = 0; i < 40; i++) {
+    assert.ok(!roleDistribution(5).includes('cuco_sonambulo'), 'un Cuco solitario no es Sonámbulo');
+    assert.ok(!roleDistribution(9, false).includes('cuco_sonambulo'), 'sin juicios no hay Sonámbulo');
+  }
 });

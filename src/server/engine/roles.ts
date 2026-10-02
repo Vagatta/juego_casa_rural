@@ -16,7 +16,8 @@ const NEEDS_JUDGMENT = new Set(['fotografa', 'ermitano']);
 export function roleDistribution(n: number, hasJudgments = true): string[] {
   const cucos = cucoCountFor(n);
   // Con un solo Cuco, que tenga habilidad activa: un Doble solitario deja la partida sin pistas fiables.
-  const cucoPool = cucos === 1 ? ['cuco_falsificador', 'cuco_carterista'] : ['cuco_falsificador', 'cuco_carterista', 'cuco_doble'];
+  // El Sonámbulo no deja rastro fuera de los juicios: ni solitario ni en noches sin juicio
+  const cucoPool = cucos === 1 ? ['cuco_falsificador', 'cuco_carterista'] : ['cuco_falsificador', 'cuco_carterista', 'cuco_doble', ...(hasJudgments ? ['cuco_sonambulo'] : [])];
   const roles = shuffle(cucoPool).slice(0, cucos);
 
   const turista = n >= 10 ? 1 : 0;

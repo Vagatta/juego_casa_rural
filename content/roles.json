@@ -221,6 +221,22 @@
     }
   },
   {
+    "id": "cuco_sonambulo",
+    "name": "Cuco Sonámbulo",
+    "emoji": "🌒",
+    "faction": "cuco",
+    "summary": "Votas dormido. Y nadie sabe qué hace tu mano de verdad.",
+    "objective": "Abrid grietas saboteando pruebas y que no os desenmascaren. Tienes 2 cerillas para apagar velas en el Ritual.",
+    "ability": {
+      "id": "sonambulo",
+      "name": "Voto sonámbulo",
+      "text": "Dos veces por partida, con un juicio abierto: tu voto de verdad va en secreto a quien elijas. Tu papeleta — la que ven la mano alzada, la Fotógrafa o la Mirilla — dice lo que votaste.",
+      "targets": 1,
+      "targetLabels": ["¿A quién va tu voto de verdad?"],
+      "perGame": 2
+    }
+  },
+  {
     "id": "turista",
     "name": "El Turista",
     "emoji": "🧳",

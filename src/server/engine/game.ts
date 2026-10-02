@@ -305,7 +305,11 @@ function revealJudgment(g: Game): void {
   // evento se lance con la votación abierta o el condenado haya votado ya
   if (g.flags.ladenVote) for (const id of g.condemned) if (v.ballots[id]) v.weights[id] = (v.weights[id] ?? 1) + 1;
   const counts = new Map<string, number>();
-  for (const [voter, targets] of Object.entries(v.ballots)) {
+  // Lo que cuenta: la papeleta, salvo el voto real del Sonámbulo (aunque se abstuviera a la vista).
+  // lastJudgment y la mano alzada siguen mostrando la papeleta — el descuadre es la pista.
+  const counted: Record<string, string[]> = { ...v.ballots };
+  for (const [voter, real] of Object.entries(v.secret ?? {})) if (!getPlayer(g, voter).left) counted[voter] = [real];
+  for (const [voter, targets] of Object.entries(counted)) {
     for (const t of targets) counts.set(t, (counts.get(t) ?? 0) + (v.weights[voter] ?? 1));
     const voterP = getPlayer(g, voter);
     if (targets.some((t) => isCuco(getPlayer(g, t)))) voterP.stats.correctVotes++;
@@ -798,12 +802,15 @@ function castVote(g: Game, p: PlayerState, targets: string[]): void {
   if (v.status !== 'open' || !v.voters.includes(p.id)) throw new GameError('No puedes votar ahora');
   if (v.ballots[p.id]) throw new GameError('Ya has votado');
   const unique = [...new Set(targets)];
-  if (unique.length < 1 || unique.length > v.picks) throw new GameError(v.picks === 1 ? 'Elige a una persona' : `Elige hasta ${v.picks} personas`);
+  // Abstenerse vale en el juicio: el Ermitaño se esconde entre los que se abstienen.
+  // En la Gran Acusación no: allí hay que señalar.
+  const abstain = v.kind === 'juicio' && unique.length === 0;
+  if (!abstain && (unique.length < 1 || unique.length > v.picks)) throw new GameError(v.picks === 1 ? 'Elige a una persona' : `Elige hasta ${v.picks} personas`);
   if (unique.some((id) => id === p.id || !activePlayers(g).some((x) => x.id === id))) throw new GameError('Voto no válido');
   v.ballots[p.id] = unique;
   if (v.kind === 'juicio') {
-    p.stats.votesCast = (p.stats.votesCast ?? 0) + 1; // ?? por snapshots anteriores a la stat
-    if (p.inventory.voto_doble > 0) {
+    if (!abstain) p.stats.votesCast = (p.stats.votesCast ?? 0) + 1; // ?? por snapshots anteriores a la stat
+    if (!abstain && p.inventory.voto_doble > 0) {
       p.inventory.voto_doble--;
       v.weights[p.id] = (v.weights[p.id] ?? 1) + 1;
     }
@@ -954,8 +961,7 @@ function buy(g: Game, p: PlayerState, a: Extract<PlayerAction, { type: 'buy' }>,
 }
 
 function useAbility(g: Game, p: PlayerState, targetIds: string[], out: Outbox): void {
-  assertPhase(g, 'INVESTIGATION');
-  const ability = roleOf(p)?.ability;
+  const ability = roleOf(p)?.ability; // la fase la valida abilityBlocker: cada habilidad tiene su ventana
   if (!ability) throw new GameError('Tu rol no tiene habilidad activa');
   const reason = abilityBlocker(g, p);
   if (reason) throw new GameError(reason);
@@ -997,6 +1003,14 @@ function useAbility(g: Game, p: PlayerState, targetIds: string[], out: Outbox): 
       break;
     case 'notario':
       throw new GameError('El sello se estampa sobre una nota concreta: búscala en tus Pistas');
+    case 'sonambulo': {
+      const real = targets[0];
+      if (real.id === p.id) throw new GameError('No puedes votarte a ti mismo');
+      const v = g.vote!;
+      (v.secret ??= {})[p.id] = real.id;
+      toast(out, p.id, { text: `🌒 Tu voto de verdad irá a ${real.name}. Tu papeleta dirá otra cosa.`, tone: 'special', private: true });
+      break;
+    }
     case 'apadrinar': {
       const godchild = targets[0];
       if (godchild.id === p.id) throw new GameError('No puedes apadrinarte a ti mismo');
@@ -1016,6 +1030,12 @@ export function abilityBlocker(g: Game, p: PlayerState): string | null {
   if (!ability) return 'Sin habilidad activa';
   if (ability.perGame && p.ability.total >= ability.perGame) return 'Ya la has gastado';
   if (ability.perRound && p.ability.roundIndex === g.roundIndex && p.ability.inRound >= ability.perRound) return 'Ya la has usado esta ronda';
+  if (ability.id === 'sonambulo') {
+    const v = g.vote;
+    if (g.phase !== 'VOTING' || v?.kind !== 'juicio' || v.status !== 'open' || !v.voters.includes(p.id)) return 'Solo con un juicio abierto';
+    if (v.secret?.[p.id]) return 'Ya caminas dormido en este juicio';
+    return null;
+  }
   if (g.phase !== 'INVESTIGATION') return 'Solo durante la investigación';
   if (ability.id === 'reparar' && g.grietas === 0) return 'No hay grietas que reparar';
   if (ability.id === 'revelado' && !g.lastJudgment) return 'Aún no ha habido juicio';

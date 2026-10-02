@@ -331,6 +331,8 @@ export function buildView(g: Game, viewer: Viewer): GameView {
           votedCount: Object.keys(g.vote.ballots).length,
           total: g.vote.voters.length,
           myVote: me && g.vote.ballots[me.id] ? [...g.vote.ballots[me.id]] : null,
+          // Solo su dueño: el voto real del Sonámbulo nunca sale en vistas ajenas
+          mySecretVote: me ? (g.vote.secret?.[me.id] ?? null) : null,
           myWeight: me
             ? g.vote.kind === 'juicio'
               ? (g.vote.weights[me.id] ?? 1 + (me.inventory.voto_doble > 0 ? 1 : 0)) +

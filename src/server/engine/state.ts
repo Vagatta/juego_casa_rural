@@ -157,6 +157,8 @@ export interface VoteState {
   suspects: string[];
   /** Gran Acusación: apuesta de monedas de cada jugador a quién es Cuco */
   bets: Record<string, { targetId: string; amount: number }>;
+  /** Cuco Sonámbulo: a quién va su voto real. La papeleta (`ballots`) es lo que se ve; esto, lo que cuenta. */
+  secret?: Record<string, string>;
 }
 
 export interface RoundPlan {

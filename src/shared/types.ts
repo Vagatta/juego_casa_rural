@@ -7,7 +7,7 @@ export type Mode = 'clasico' | 'caos' | 'sofa';
 export type MissionDifficulty = 'facil' | 'media' | 'dificil' | 'epica';
 export type ChallengeKind = 'physical' | 'quiz' | 'code_hunt' | 'word_impostor' | 'truth_lie' | 'social_vote' | 'interrogatorio';
 export type ChallengeCategory = 'mental' | 'social' | 'fisica' | 'movil' | 'mentira';
-export type AbilityId = 'investigar' | 'receta' | 'reparar' | 'revelado' | 'falsificar' | 'mano_larga' | 'notario' | 'apadrinar';
+export type AbilityId = 'investigar' | 'receta' | 'reparar' | 'revelado' | 'falsificar' | 'mano_larga' | 'notario' | 'apadrinar' | 'sonambulo';
 export type ShopItemId = 'pista' | 'candado' | 'voto_doble' | 'ganzua' | 'mirilla' | 'sobre' | 'coartada' | 'altavoz' | 'espejo' | 'nota';
 
 export type Phase =
@@ -169,7 +169,10 @@ export interface VoteView {
   isPublic: boolean;
   votedCount: number;
   total: number;
+  /** [] = abstención en el juicio */
   myVote: string[] | null;
+  /** Cuco Sonámbulo: a quién va su voto real (solo en su propia vista) */
+  mySecretVote: string | null;
   myWeight: number;
   /** Casino de la Gran Acusación: público, para el cachondeo */
   bets: { playerId: string; targetId: string; amount: number }[];

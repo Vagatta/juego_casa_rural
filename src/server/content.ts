@@ -18,7 +18,7 @@ const roleSchema = z.object({
   objective: z.string(),
   ability: z
     .object({
-      id: z.enum(['investigar', 'receta', 'reparar', 'revelado', 'falsificar', 'mano_larga', 'notario', 'apadrinar']),
+      id: z.enum(['investigar', 'receta', 'reparar', 'revelado', 'falsificar', 'mano_larga', 'notario', 'apadrinar', 'sonambulo']),
       name: z.string(),
       text: z.string(),
       targets: z.union([z.literal(0), z.literal(1), z.literal(2)]),

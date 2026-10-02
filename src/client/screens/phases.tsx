@@ -777,18 +777,28 @@ function VotingNow() {
       </header>
       {v.myVote ? (
         <div className="slab center stack">
-          <p className="done-msg">Has señalado a {v.myVote.map((id) => get(id)?.name).join(' y ')}.</p>
+          <p className="done-msg">{v.myVote.length ? `Has señalado a ${v.myVote.map((id) => get(id)?.name).join(' y ')}.` : 'Te has abstenido.'}</p>
           <p className="muted small">{v.votedCount} de {v.total} han votado</p>
         </div>
       ) : (
         <PrivacyGate id={`vote:${view.code}:${v.kind}:${view.round?.index}`} title="Voto secreto" compact>
           <PlayerPicker players={active.filter((p) => p.id !== me.id)} max={v.picks} selected={picked} onChange={setPicked} />
           {!isFinal && v.myWeight > 1 && <p className="chip chip--warn" style={{ alignSelf: 'center' }}><GIcon id="voto-doble" size={14} /> Tu voto cuenta {v.myWeight === 2 ? 'doble' : `×${v.myWeight}`}</p>}
-          {!isFinal && me.role?.id === 'ermitano' && <p className="muted small" style={{ alignSelf: 'center' }}>Si votas rompes tu voto de silencio y pierdes el bonus del Ermitaño.</p>}
+          {!isFinal && me.role?.id === 'ermitano' && <p className="muted small" style={{ alignSelf: 'center' }}>Si votas rompes tu voto de silencio y pierdes el bonus del Ermitaño. Abstenerte no lo rompe.</p>}
           <Button block variant="danger" arrow disabled={busy || !picked.length} onClick={() => run({ type: 'vote', targets: picked })}>
             {isFinal ? 'Acusar' : 'Votar'}
           </Button>
+          {!isFinal && (
+            <Button block variant="ghost" disabled={busy} onClick={() => run({ type: 'vote', targets: [] })}>
+              Me abstengo
+            </Button>
+          )}
           <InlineError error={error} />
+        </PrivacyGate>
+      )}
+      {!isFinal && me.role?.ability?.id === 'sonambulo' && (
+        <PrivacyGate id={`sonambulo:${view.code}:${view.round?.index}`} title="Tu mano dormida" compact>
+          {v.mySecretVote ? <p className="center done-msg">Tu voto de verdad va a {get(v.mySecretVote)?.name}. Tu papeleta dirá otra cosa.</p> : <AbilityPanel />}
         </PrivacyGate>
       )}
       {isFinal && <BetPanel />}
@@ -886,7 +896,7 @@ export function VoteResult({ view, big }: { view: GameView; big?: boolean }) {
           <strong><GIcon id="mano-alzada" size={16} /> A mano alzada</strong>
           {res.ballots.map((b) => (
             <span key={b.voterId}>
-              {get(b.voterId)?.name} → {b.targets.map((t) => get(t)?.name).join(', ')}
+              {get(b.voterId)?.name} → {b.targets.length ? b.targets.map((t) => get(t)?.name).join(', ') : 'se abstiene'}
             </span>
           ))}
         </div>
