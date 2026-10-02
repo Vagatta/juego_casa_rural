@@ -277,6 +277,14 @@ test('notas, parejas, saboteador, mercado negro e interrogatorio', () => {
   resolveSaboteur(g, true, out); // la prueba se supera → no cobra
   assert.equal(sab2.status, 'discarded');
 
+  // La orden oscura no se reclama ni se descarta: cobra sola si el equipo falla.
+  // Reclamarla era dinero gratis sin sabotear nada.
+  assignSaboteurMission(g, carlos, 'La tercera', out);
+  const sab3 = g.missions.filter((m) => m.tags.includes('saboteador'))[2];
+  assert.throws(() => playerAction(g, carlos, { type: 'claimMission', missionId: sab3.id }, out, true), /se resuelve/);
+  assert.throws(() => playerAction(g, carlos, { type: 'discardMission', missionId: sab3.id }, out, true), /no se descarta/);
+  assert.equal(sab3.status, 'active', 'sigue viva esperando el resultado de la prueba');
+
   // Mercado negro: los objetos de la lista salen con descuento
   g.market = ['espejo'];
   assert.equal(priceOf(g, 'espejo'), Math.floor(80 * MARKET_DISCOUNT));

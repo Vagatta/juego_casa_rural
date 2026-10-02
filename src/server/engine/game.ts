@@ -188,7 +188,9 @@ function startRound(g: Game, index: number, out: Outbox): void {
   g.challenge = null;
   g.ritual = null;
   g.vote = null;
-  g.rounds.push({ index, challengeId: plan.challengeId, eventIds: [], outcome: 'none', apagones: 0, ritualParticipants: [], saboteurs: [], suspects: [...g.suspects] });
+  // suspects nace vacío: el juicio de ESTA ronda lo rellena; heredar los de la
+  // anterior haría que la crónica dijera «el juicio señaló a…» sin juicio
+  g.rounds.push({ index, challengeId: plan.challengeId, eventIds: [], outcome: 'none', apagones: 0, ritualParticipants: [], saboteurs: [], suspects: [] });
   g.auction = null; // una subasta abierta no cruza de ronda
   setPhase(g, 'ROUND_INTRO');
   flushLetters(g, out);

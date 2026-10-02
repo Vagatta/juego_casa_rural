@@ -3,7 +3,7 @@ import QRCode from 'qrcode';
 import { useEffect, useMemo, useState } from 'react';
 import { Toasts } from '../components/cards.tsx';
 import { Button, Candles, Stamp, Timer, Token } from '../components/ui.tsx';
-import { GameContext, pausedMsFor, useGame, useGameConnection } from '../lib/net.ts';
+import { GameContext, pausedMsFor, useGame, useGameConnection, useServerNow } from '../lib/net.ts';
 import { GIcon } from '../lib/icons.tsx';
 import { navigate } from '../lib/router.ts';
 import { getSession, saveSession } from '../lib/session.ts';
@@ -144,6 +144,9 @@ export function Stage() {
   const { view } = useGame();
   const { active, get } = usePlayers();
   const c = view.challenge;
+  // Reloj que hace tick (serverNow de la vista es solo la foto del broadcast):
+  // la puerta «escondiendo» del code_hunt lo necesita para abrirse a tiempo
+  const serverNowTick = useServerNow(500);
 
   switch (view.phase) {
     case 'LOBBY':
@@ -198,7 +201,7 @@ export function Stage() {
       if (!c) return null;
       const cat = CATEGORY[c.category];
       const hunting = c.kind === 'code_hunt' && c.status === 'running';
-      const hiding = hunting && (c.pub.huntStartsAt ?? 0) > (view.pausedAt ?? view.serverNow);
+      const hiding = hunting && (c.pub.huntStartsAt ?? 0) > (view.pausedAt ?? serverNowTick);
       return (
         <section className="stage stage--challenge">
           <div className="stage__col">

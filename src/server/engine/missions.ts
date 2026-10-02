@@ -321,6 +321,8 @@ function ownActiveMission(g: Game, p: PlayerState, missionId: string): MissionSt
 
 export function claimMission(g: Game, p: PlayerState, missionId: string, out: Outbox): void {
   const m = ownActiveMission(g, p, missionId);
+  // La orden oscura no se reclama: cobra sola al terminar la prueba, y solo si el equipo falló
+  if (m.tags.includes(SABOTEUR_TAG)) throw new GameError('Eso no se reclama: se resuelve solo al terminar la prueba');
   completeMission(g, p, m, out, 'Misión cumplida');
   announce(g, 'Alguien acaba de cumplir una misión secreta.', 'special');
 }
@@ -328,6 +330,7 @@ export function claimMission(g: Game, p: PlayerState, missionId: string, out: Ou
 export function discardMission(g: Game, p: PlayerState, missionId: string): void {
   const m = ownActiveMission(g, p, missionId);
   if (m.tags.includes(SUSPECT_TAG)) throw new GameError('La orden de la casa no se descarta');
+  if (m.tags.includes(SABOTEUR_TAG)) throw new GameError('La orden oscura no se descarta');
   m.status = 'discarded';
   m.resolvedAt = Date.now();
 }

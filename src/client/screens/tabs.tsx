@@ -72,21 +72,25 @@ export function MissionsTab() {
                 <span className={`diff diff--${m.difficulty}`}>{DIFF_LABEL[m.difficulty]}</span>
                 <span>+{m.reward} <GIcon id="coins" size={12} /></span>
               </div>
-              <div className="row" style={{ marginTop: 12 }}>
-                <Button small variant="safe" className="grow" disabled={busy} onClick={() => run({ type: 'claimMission', missionId: m.id })}>
-                  ¡Cumplida!
-                </Button>
-                {!m.suspect &&
-                  (confirmDiscard === m.id ? (
-                    <Button small variant="danger" disabled={busy} onClick={() => run({ type: 'discardMission', missionId: m.id }).then(() => setConfirmDiscard(null))}>
-                      ¿Seguro?
-                    </Button>
-                  ) : (
-                    <Button small variant="ghost" className="note__ghost" onClick={() => setConfirmDiscard(m.id)}>
-                      Descartar
-                    </Button>
-                  ))}
-              </div>
+              {m.saboteur ? (
+                <p className="muted small" style={{ marginTop: 12 }}>Se resuelve sola al acabar la prueba: solo cobras si el equipo fracasa.</p>
+              ) : (
+                <div className="row" style={{ marginTop: 12 }}>
+                  <Button small variant="safe" className="grow" disabled={busy} onClick={() => run({ type: 'claimMission', missionId: m.id })}>
+                    ¡Cumplida!
+                  </Button>
+                  {!m.suspect &&
+                    (confirmDiscard === m.id ? (
+                      <Button small variant="danger" disabled={busy} onClick={() => run({ type: 'discardMission', missionId: m.id }).then(() => setConfirmDiscard(null))}>
+                        ¿Seguro?
+                      </Button>
+                    ) : (
+                      <Button small variant="ghost" className="note__ghost" onClick={() => setConfirmDiscard(m.id)}>
+                        Descartar
+                      </Button>
+                    ))}
+                </div>
+              )}
             </article>
           ))}
         </div>

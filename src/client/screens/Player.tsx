@@ -6,7 +6,7 @@ import { Button, Coins } from '../components/ui.tsx';
 import { GameContext, useGame, useGameConnection } from '../lib/net.ts';
 import { recordNight } from '../lib/badges.ts';
 import { navigate } from '../lib/router.ts';
-import { getSession } from '../lib/session.ts';
+import { forgetPlayer, getSession } from '../lib/session.ts';
 import { onSoundChange, setSoundEnabled, soundEnabled } from '../lib/sound.ts';
 import { GIcon } from '../lib/icons.tsx';
 import { HostControls } from './HostControls.tsx';
@@ -19,6 +19,13 @@ export function PlayerScreen({ code }: { code: string }) {
   // #t=<playerToken> permite abrir a un jugador concreto sin sesión local (mesa de pruebas, móvil prestado)
   const hashToken = new URLSearchParams(location.hash.slice(1)).get('t');
   const conn = useGameConnection(code, hashToken ?? getSession(code)?.playerToken);
+
+  // not_found es autoritativo: el token guardado ya no abre esta casa (relevo,
+  // lobby depurado, snapshot sin nosotros). Si no se limpia, «Entrar con otro
+  // nombre» vuelve aquí en bucle porque Join reenvía al ver la sesión vieja.
+  useEffect(() => {
+    if (conn.status === 'not_found' && !hashToken) forgetPlayer(code);
+  }, [conn.status, code, hashToken]);
 
   if (conn.status === 'not_found' || conn.status === 'kicked') {
     return (

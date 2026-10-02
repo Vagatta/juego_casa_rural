@@ -5,7 +5,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { CODE_ALPHABET, CODE_LENGTH } from '../shared/constants.ts';
 import { rand } from './engine/rng.ts';
-import { type Game, emptyStats } from './engine/state.ts';
+import { type Game, emptyStats, isCuco } from './engine/state.ts';
 
 interface SnapshotBackend {
   init(): Promise<void>;
@@ -35,6 +35,46 @@ function migrate(g: Game): Game {
   g.rematchTo ??= null;
   g.used ??= { challenges: [], events: [], missions: [], quiz: [], social: [], words: [] };
   g.used.words ??= [];
+  // Objetos anidados: un voto sin `bets`/`weights` rompería buildView y castVote
+  if (g.vote) {
+    g.vote.ballots ??= {};
+    g.vote.weights ??= {};
+    g.vote.bets ??= {};
+    g.vote.suspects ??= [];
+    g.vote.voters ??= [];
+  }
+  if (g.ritual) {
+    g.ritual.choices ??= {};
+    g.ritual.participants ??= [];
+    g.ritual.apagones ??= 0;
+  }
+  g.rounds ??= [];
+  for (const r of g.rounds) {
+    r.eventIds ??= [];
+    r.saboteurs ??= [];
+    r.ritualParticipants ??= [];
+    r.suspects ??= [];
+    r.apagones ??= 0;
+    r.outcome ??= 'none';
+  }
+  if (g.challenge) {
+    g.challenge.participants ??= [];
+    g.challenge.winners ??= [];
+    // Sin huntStartsAt el código parecería «escondiéndose» para siempre
+    if (g.challenge.code) {
+      g.challenge.code.attempts ??= {};
+      g.challenge.code.huntStartsAt ??= null;
+    }
+    if (g.challenge.quiz) g.challenge.quiz.answers ??= {};
+    if (g.challenge.impostor) g.challenge.impostor.votes ??= {};
+    if (g.challenge.truthLie) {
+      g.challenge.truthLie.guesses ??= {};
+      g.challenge.truthLie.lieIndex ??= null;
+    }
+    if (g.challenge.social) g.challenge.social.votes ??= {};
+  }
+  // Se puede reconstruir de los roles; sin él la Gran Acusación aceptaría NaN acusaciones
+  g.cucoCount ??= g.players.filter((p) => p.roleId && isCuco(p)).length;
   for (const p of g.players) {
     p.ready ??= false;
     p.readyFor ??= null;
