@@ -52,6 +52,7 @@ import {
   currentPlan,
   earn,
   emptyStats,
+  gameNow,
   getPlayer,
   isCuco,
   isLastRound,
@@ -116,6 +117,7 @@ export function takeOverPlayer(g: Game, playerId: string, out: Outbox): PlayerSt
   p.token = secretToken(); // la llave vieja deja de funcionar
   p.left = false;
   p.ready = false;
+  p.readyFor = null; // quien llega con otro móvil no hereda confirmaciones que no pulsó
   p.lastSeen = Date.now();
   out.kicked.push(p.id); // desconecta el socket del móvil anterior, si seguía abierto
   announce(g, wasOut ? `🔁 ${p.name} vuelve a la casa con otro móvil.` : `🔁 Un relevo toma el papel de ${p.name}.`, 'special');
@@ -350,8 +352,9 @@ export function readyKey(g: Game): string | null {
       return g.vote?.status === 'revealed' ? `vote:${g.roundIndex}` : null;
     case 'ROUND_RESULT':
       return `res:${g.roundIndex}`;
+    // La Gran Acusación es input real (acusar y apostar): no hay nada que confirmar
     case 'FINAL_ACCUSATION':
-      return g.vote?.status === 'open' ? 'final' : null;
+      return null;
     default:
       return null;
   }
@@ -371,7 +374,9 @@ function maybeAdvanceAllReady(g: Game, out: Outbox): void {
   if (g.pausedRemainingMs !== null) return;
   const key = readyKey(g);
   if (!key) return;
-  if (activePlayers(g).every((x) => x.readyFor === key || !x.connected)) advance(g, out);
+  const active = activePlayers(g);
+  // every() sobre lista vacía es true: una casa sin jugadores activos no se auto-aventa
+  if (active.length && active.every((x) => x.readyFor === key || !x.connected)) advance(g, out);
 }
 
 /** Botón principal del director. Avanza según la fase y sub-estado actuales. */
@@ -534,7 +539,9 @@ export function hostAction(g: Game, a: HostAction, out: Outbox, isDirectorDevice
       // Los contadores internos también se mueven: la pausa no consume sus plazos
       const hunt = g.challenge?.code;
       if (hunt?.huntStartsAt) hunt.huntStartsAt += pausedFor;
-      if (g.truceUntil > now) g.truceUntil += pausedFor;
+      // La tregua se desplaza si seguía viva al congelarse — comparar con `now`
+      // la mataría en silencio cuando la pausa dura más que lo que le quedaba
+      if (g.pausedAt !== null && g.truceUntil > g.pausedAt) g.truceUntil += pausedFor;
       if (g.event?.endsAt) g.event.endsAt += pausedFor;
       if (g.auction) g.auction.endsAt += pausedFor;
       for (const m of g.missions) if (m.status === 'active' && m.expiresAt) m.expiresAt += pausedFor;
@@ -600,13 +607,19 @@ export type PlayerAction =
   | { type: 'coinflip'; amount: number }
   | { type: 'bid'; amount: number };
 
+/** ¿Todo el mundo presente ha visto su rol? Lista vacía no: la casa no arranca sola. */
+const allSawRoles = (g: Game): boolean => {
+  const active = activePlayers(g);
+  return active.length > 0 && active.every((x) => x.ready || !x.connected);
+};
+
 export function playerAction(g: Game, p: PlayerState, a: PlayerAction, out: Outbox, hostOnline: boolean): void {
   if (p.left) throw new GameError('Has salido de la partida');
   switch (a.type) {
     case 'ready': {
       if (g.phase === 'ROLE_REVEAL') {
         p.ready = true;
-        if (activePlayers(g).every((x) => x.ready || !x.connected)) startRound(g, 0, out);
+        if (allSawRoles(g)) startRound(g, 0, out);
         return;
       }
       // «Estamos listos»: cada uno marca la espera actual; al completarse, salta sola
@@ -652,7 +665,7 @@ export function playerAction(g: Game, p: PlayerState, a: PlayerAction, out: Outb
       return discardMission(g, p, a.missionId);
     case 'pillar':
       if (g.roundIndex < 0 || g.phase === 'FINALE' || g.phase === 'FINAL_ACCUSATION') throw new GameError('Ahora no');
-      if (Date.now() < g.truceUntil) throw new GameError('La casa está de sobremesa: ni un ¡PILLADO! hasta que acabe');
+      if (gameNow(g) < g.truceUntil) throw new GameError('La casa está de sobremesa: ni un ¡PILLADO! hasta que acabe');
       return pillar(g, p, getPlayer(g, a.targetId), out);
     case 'bet':
       return placeBet(g, p, a.targetId, a.amount, out);
@@ -715,7 +728,7 @@ export function playerAction(g: Game, p: PlayerState, a: PlayerAction, out: Outb
     case 'coinflip': {
       // Doble o nada: una jugada por ronda, la moneda cae delante de toda la casa
       assertPhase(g, 'INVESTIGATION');
-      if (Date.now() < g.truceUntil) throw new GameError('La casa está de sobremesa: el casino está cerrado');
+      if (gameNow(g) < g.truceUntil) throw new GameError('La casa está de sobremesa: el casino está cerrado');
       if (p.coinflipRound === g.roundIndex) throw new GameError('Ya te la has jugado esta ronda');
       const amount = Math.trunc(a.amount);
       if (amount < 10) throw new GameError('La apuesta mínima son 10 🪙');
@@ -735,7 +748,7 @@ export function playerAction(g: Game, p: PlayerState, a: PlayerAction, out: Outb
     case 'bid': {
       // Puja sellada: solo se ve cuánta gente ha pujado, nunca cuánto ni quién
       const auction = g.auction;
-      if (!auction || Date.now() >= auction.endsAt) throw new GameError('La subasta ya se cerró');
+      if (!auction || gameNow(g) >= auction.endsAt) throw new GameError('La subasta ya se cerró');
       const amount = Math.trunc(a.amount);
       if (amount < AUCTION_MIN_BID) throw new GameError(`La puja mínima son ${AUCTION_MIN_BID} 🪙`);
       if (amount > p.coins) throw new GameError('No tienes tantas monedas');
@@ -994,7 +1007,7 @@ export function leavePlayer(g: Game, p: PlayerState, out: Outbox): void {
   }
   announce(g, `${p.name} se ha ido a dormir.`, 'info');
   // Cerramos lo que estuviera esperando por este jugador
-  if (g.phase === 'ROLE_REVEAL' && activePlayers(g).every((x) => x.ready || !x.connected)) return startRound(g, 0, out);
+  if (g.phase === 'ROLE_REVEAL' && allSawRoles(g)) return startRound(g, 0, out);
   if (g.phase === 'CHALLENGE' && g.challenge) {
     const c = g.challenge;
     const waiting = c.status === 'running' || c.status === 'voting';
@@ -1010,7 +1023,7 @@ export function leavePlayer(g: Game, p: PlayerState, out: Outbox): void {
  *  desbloquea las esperas que ya no necesitan su input: sin esto, un móvil que
  *  se apaga justo tras el último "listo" dejaba la casa esperándole en vano. */
 export function onPlayerOffline(g: Game, out: Outbox): void {
-  if (g.phase === 'ROLE_REVEAL' && activePlayers(g).every((x) => x.ready || !x.connected)) startRound(g, 0, out);
+  if (g.phase === 'ROLE_REVEAL' && allSawRoles(g)) startRound(g, 0, out);
   // Un móvil caído no puede confirmar, así que tampoco puede bloquear el «estamos listos»
   maybeAdvanceAllReady(g, out);
 }

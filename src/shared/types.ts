@@ -303,6 +303,8 @@ export interface GameView {
   players: PublicPlayer[];
   phaseEndsAt: number | null;
   pausedRemainingMs: number | null;
+  /** Momento en que empezó el tiempo muerto: los plazos internos se miden desde aquí */
+  pausedAt: number | null;
   event: EventView | null;
   challenge: ChallengeView | null;
   ritual: RitualView | null;

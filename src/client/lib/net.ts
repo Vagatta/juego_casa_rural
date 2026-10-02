@@ -202,6 +202,11 @@ export function useServerNow(ms = 250): number {
   return now;
 }
 
+/** En pausa, lo que le queda a un plazo interno (evento, subasta, escondite,
+ *  relámpago): congelado en el momento del tiempo muerto. null si el reloj corre. */
+export const pausedMsFor = (view: { pausedAt: number | null }, endsAt: number | null): number | null =>
+  view.pausedAt !== null && endsAt !== null ? Math.max(0, endsAt - view.pausedAt) : null;
+
 /** Envía una acción y gestiona "enviando" + error en línea. */
 export function useAction() {
   const { send } = useGame();

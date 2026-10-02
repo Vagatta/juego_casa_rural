@@ -4,7 +4,7 @@ import type { ChallengeView, GameView, PublicPlayer } from '../../shared/types.t
 import { PlayerPicker, RoleCard } from '../components/cards.tsx';
 import { PrivacyGate } from '../components/privacy.tsx';
 import { Button, Candles, Coins, InlineError, Stamp, Timer, Token, useCountdown } from '../components/ui.tsx';
-import { useAction, useGame, useServerNow } from '../lib/net.ts';
+import { pausedMsFor, useAction, useGame, useServerNow } from '../lib/net.ts';
 import { GIcon } from '../lib/icons.tsx';
 import { play } from '../lib/sound.ts';
 import { AbilityPanel } from './tabs.tsx';
@@ -245,7 +245,7 @@ function EventBanner() {
         <strong>{e.title}</strong>
         <span className="small">{e.text}</span>
       </div>
-      <Timer endsAt={e.endsAt} />
+      <Timer endsAt={e.endsAt} pausedMs={pausedMsFor(view, e.endsAt)} />
     </aside>
   );
 }
@@ -424,7 +424,7 @@ function ChallengeInteraction({ c }: { c: ChallengeView }) {
   const [picked, setPicked] = useState<string[]>([]);
   const [answers, setAnswers] = useState<number[]>([]);
   const [code, setCode] = useState('');
-  const now = useServerNow(500);
+  const now = view.pausedAt ?? useServerNow(500);
 
   if (c.status === 'briefing') {
     if (c.mine.code?.isHider) {
@@ -489,7 +489,7 @@ function ChallengeInteraction({ c }: { c: ChallengeView }) {
           <div className="slab center stack">
             <p className="display" style={{ fontSize: 26 }}>Fuera del salón. Ojos cerrados.</p>
             <p className="muted">{get(c.pub.hiderId!)?.name} está escondiendo el código.</p>
-            <Timer endsAt={starts} label="La búsqueda empieza en" />
+            <Timer endsAt={starts} pausedMs={pausedMsFor(view, starts)} label="La búsqueda empieza en" />
           </div>
         );
       }

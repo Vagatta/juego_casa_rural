@@ -292,6 +292,12 @@ export function spend(p: PlayerState, amount: number): void {
 }
 
 export const currentPlan = (g: Game): RoundPlan | null => g.plan[g.roundIndex] ?? null;
+
+/** Reloj de la casa: en pausa el tiempo queda clavado en pausedAt, así que los
+ *  plazos internos (subasta, tregua, relámpago, escondite del código) no avanzan.
+ *  Los que miden cosas del mundo real — gracia de reconexión, reclamo del director —
+ *  deben seguir usando Date.now(). */
+export const gameNow = (g: Game): number => (g.pausedRemainingMs !== null ? (g.pausedAt ?? Date.now()) : Date.now());
 export const isLastRound = (g: Game): boolean => g.roundIndex >= g.plan.length - 1;
 
 export function assertPhase(g: Game, ...phases: Phase[]): void {

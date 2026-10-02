@@ -14,7 +14,9 @@ import { usePlayers } from './phases.tsx';
 const DIFF_LABEL = { facil: 'Fácil', media: 'Media', dificil: 'Difícil', epica: 'Épica' } as const;
 
 function LightningTimer({ endsAt }: { endsAt: number }) {
-  const now = useServerNow(500);
+  const { view } = useGame();
+  const serverNow = useServerNow(500);
+  const now = view.pausedAt ?? serverNow;
   const left = Math.max(0, Math.ceil((endsAt - now) / 1000));
   return <p className="note__suspect"><GIcon id="relampago" size={13} /> Relámpago — te quedan {left} s. Después se apaga.</p>;
 }

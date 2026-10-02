@@ -3,7 +3,7 @@ import QRCode from 'qrcode';
 import { useEffect, useMemo, useState } from 'react';
 import { Toasts } from '../components/cards.tsx';
 import { Button, Candles, Stamp, Timer, Token } from '../components/ui.tsx';
-import { GameContext, useGame, useGameConnection } from '../lib/net.ts';
+import { GameContext, pausedMsFor, useGame, useGameConnection } from '../lib/net.ts';
 import { GIcon } from '../lib/icons.tsx';
 import { navigate } from '../lib/router.ts';
 import { getSession, saveSession } from '../lib/session.ts';
@@ -61,7 +61,7 @@ function DirectorApp() {
   return (
     <main className={`director ${panel ? '' : 'director--tv'}`}>
       <div className="director__stage">
-        {view.event?.blackout && view.event.endsAt && <BlackoutOverlay endsAt={view.event.endsAt} />}
+        {view.event?.blackout && view.event.endsAt && <BlackoutOverlay endsAt={view.event.endsAt} pausedMs={pausedMsFor(view, view.event.endsAt)} />}
         <div className="director__bar">
           <span className="display director__brand"><GIcon id="casa" size={20} /> La Casa Rural</span>
           <span className="chip">Casa {view.code}</span>
@@ -96,12 +96,12 @@ function DirectorApp() {
 
 /** El apagón: la pantalla de la casa se apaga del todo. Solo queda una brasa
  *  parpadeando — lo que pase en la habitación, la tele no lo ve. */
-function BlackoutOverlay({ endsAt }: { endsAt: number }) {
+function BlackoutOverlay({ endsAt, pausedMs }: { endsAt: number; pausedMs: number | null }) {
   return (
     <div className="blackout" role="status" aria-label="Apagón: la casa se ha quedado a oscuras">
       <span className="blackout__ember" aria-hidden>🔥</span>
       <span className="blackout__hint">La casa se quedó a oscuras</span>
-      <Timer endsAt={endsAt} />
+      <Timer endsAt={endsAt} pausedMs={pausedMs} />
     </div>
   );
 }
@@ -188,7 +188,7 @@ export function Stage() {
                 <strong className="display">{view.event.title}</strong>
                 <span>{view.event.text}</span>
               </div>
-              {view.event.endsAt && <Timer endsAt={view.event.endsAt} />}
+              {view.event.endsAt && <Timer endsAt={view.event.endsAt} pausedMs={pausedMsFor(view, view.event.endsAt)} />}
             </div>
           )}
           <Timer endsAt={view.phaseEndsAt} pausedMs={view.pausedRemainingMs} />
@@ -198,7 +198,7 @@ export function Stage() {
       if (!c) return null;
       const cat = CATEGORY[c.category];
       const hunting = c.kind === 'code_hunt' && c.status === 'running';
-      const hiding = hunting && (c.pub.huntStartsAt ?? 0) > view.serverNow;
+      const hiding = hunting && (c.pub.huntStartsAt ?? 0) > (view.pausedAt ?? view.serverNow);
       return (
         <section className="stage stage--challenge">
           <div className="stage__col">
@@ -207,7 +207,7 @@ export function Stage() {
           </div>
           <div className="stage__col stage__col--side">
             {c.status === 'briefing' && <p className="stage__lead hand">Leed en voz alta. Preparados...</p>}
-            {hiding && <Timer endsAt={c.pub.huntStartsAt ?? null} label={`${get(c.pub.hiderId!)?.name} esconde el código`} big />}
+            {hiding && <Timer endsAt={c.pub.huntStartsAt ?? null} pausedMs={pausedMsFor(view, c.pub.huntStartsAt ?? null)} label={`${get(c.pub.hiderId!)?.name} esconde el código`} big />}
             {(c.status === 'running' && !hiding) || c.status === 'voting' ? (
               <Timer endsAt={view.phaseEndsAt} pausedMs={view.pausedRemainingMs} label={c.status === 'voting' ? 'Votación' : 'Tiempo'} big />
             ) : null}

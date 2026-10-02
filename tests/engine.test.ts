@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { content, roleById } from '../src/server/content.ts';
-import { addPlayer, advance, createGame, hostAction, leavePlayer, onPlayerOffline, playerAction, readyUp, startGame, tick } from '../src/server/engine/game.ts';
+import { addPlayer, advance, createGame, hostAction, leavePlayer, onPlayerOffline, playerAction, readyUp, startGame, takeOverPlayer, tick } from '../src/server/engine/game.ts';
 import { pillar } from '../src/server/engine/missions.ts';
 import { dealCoupleMission, dealCorroMission, dealMissions, discardMission, assignSaboteurMission, resolveSaboteur, SUSPECT_TAG } from '../src/server/engine/missions.ts';
 import { applyEvent } from '../src/server/engine/events.ts';
@@ -9,10 +12,11 @@ import { computeFinale } from '../src/server/engine/finale.ts';
 import { buildPlan, affectsCandles } from '../src/server/engine/plan.ts';
 import { roleDistribution } from '../src/server/engine/roles.ts';
 import { challengeById, gameContent } from '../src/server/content.ts';
-import { AUTO_DELAY_SEC, BET_PAYOUT, GANZUA_STEAL, MARKET_DISCOUNT, SHOP_PRICES } from '../src/shared/constants.ts';
+import { AUTO_DELAY_SEC, BET_PAYOUT, GANZUA_STEAL, MARKET_DISCOUNT, SHOP_PRICES, TAKEOVER_GRACE_MS } from '../src/shared/constants.ts';
 import { setupChallenge } from '../src/server/engine/challenges.ts';
 import { priceOf } from '../src/server/engine/game.ts';
 import { newOutbox, type Game, type PlayerState } from '../src/server/engine/state.ts';
+import { GameStore } from '../src/server/store.ts';
 import type { GameSettings, ShopItemId } from '../src/shared/types.ts';
 
 test('contenido suficiente y bien formado', () => {
@@ -891,4 +895,126 @@ test('estamos listos: la espera salta cuando lo confirma todo el mundo', () => {
   laura.connected = false;
   onPlayerOffline(g, out);
   assert.equal(g.phase, 'ROUND_INTRO', 'al caer Laura, los presentes ya habían dicho que sí');
+});
+
+test('tiempo muerto: el reloj de la casa se congela también por dentro', () => {
+  const g: Game = createGame('TESTH', { durationMin: 60, difficulty: 'normal', mode: 'clasico', expectedPlayers: 6, hostPlays: true });
+  const ps = ['Ana', 'Carlos', 'Diego', 'Laura', 'Marcos', 'Marta'].map((n) => addPlayer(g, n, '🐓'));
+  const [ana, carlos] = ps;
+  for (const p of ps) p.roleId = 'vecino';
+  const out = newOutbox();
+  g.roundIndex = 1;
+  g.phase = 'INVESTIGATION';
+  g.phaseEndsAt = Date.now() + 120_000;
+  g.truceUntil = Date.now() + 60_000; // sobremesa en marcha
+  applyEvent(g, 'e54', out); // subasta abierta
+  ana.coins = 100;
+  g.missions.push({
+    id: 'm1', missionId: 'x', playerId: ana.id, text: 'relámpago', difficulty: 'facil',
+    category: 'movil', reward: 10, targets: [], tags: [], status: 'active', assignedRound: 1, resolvedAt: null,
+    expiresAt: Date.now() + 30_000,
+  });
+
+  hostAction(g, { type: 'pause' }, out, true);
+  assert.ok(g.pausedRemainingMs !== null, 'la casa queda en pausa');
+
+  // Simulamos que el tiempo muerto dura una eternidad: los plazos quedan VENCIDOS
+  // en el reloj de pared pero con margen en el reloj congelado de la casa.
+  g.pausedAt = Date.now() - 10_000;
+  g.truceUntil = g.pausedAt + 5_000;
+  g.auction!.endsAt = g.pausedAt + 5_000;
+  g.missions[0].expiresAt = g.pausedAt + 5_000;
+
+  playerAction(g, ana, { type: 'bid', amount: 40 }, out, true);
+  assert.equal(g.auction!.bids[ana.id].amount, 40, 'la subasta congelada sigue aceptando pujas');
+  assert.throws(() => playerAction(g, carlos, { type: 'pillar', targetId: ana.id }, out, true), /sobremesa/i, 'la tregua no expira en la pausa');
+  playerAction(g, ana, { type: 'claimMission', missionId: 'm1' }, out, true);
+  assert.equal(g.missions[0].status, 'completed', 'la relámpago no se apaga durante el tiempo muerto');
+  assert.equal(tick(g, out, Date.now() + 999_999_999), false, 'el barrido no ejecuta nada en pausa');
+});
+
+test('la Gran Acusación es input real: el "estamos listos" no la salta', () => {
+  const g: Game = createGame('TESTI', { durationMin: 60, difficulty: 'normal', mode: 'clasico', expectedPlayers: 6, hostPlays: true });
+  const ps = ['Ana', 'Carlos', 'Diego', 'Laura', 'Marcos', 'Marta'].map((n) => addPlayer(g, n, '🐓'));
+  const ana = ps[0];
+  for (const p of ps) { p.roleId = 'vecino'; p.connected = true; }
+  const out = newOutbox();
+  g.phase = 'FINAL_ACCUSATION';
+  g.vote = { kind: 'final', status: 'open', picks: 2, isPublic: false, voters: ps.map((p) => p.id), ballots: {}, weights: {}, tally: null, suspects: [], bets: {} };
+
+  assert.equal(readyUp(g), null, 'no hay espera que confirmar: hay que acusar y apostar');
+  assert.throws(() => playerAction(g, ana, { type: 'ready' }, out, true), /nada que confirmar/i);
+  for (const p of ps) assert.throws(() => playerAction(g, p, { type: 'ready' }, out, true), /nada que confirmar/i);
+  assert.equal(g.phase, 'FINAL_ACCUSATION', 'la unanimidad no puede saltarse la Gran Acusación');
+});
+
+test('relevo: el móvil nuevo no hereda el "estoy listo" del móvil muerto', () => {
+  const g: Game = createGame('TESTJ', { durationMin: 60, difficulty: 'normal', mode: 'clasico', expectedPlayers: 6, hostPlays: true });
+  const ps = ['Ana', 'Carlos', 'Diego', 'Laura', 'Marcos', 'Marta'].map((n) => addPlayer(g, n, '🐓'));
+  const [ana, , , , marcos] = ps;
+  for (const p of ps) { p.roleId = 'vecino'; p.connected = true; }
+  const out = newOutbox();
+  g.plan = buildPlan({ durationMin: 60, difficulty: 'normal', mode: 'clasico', expectedPlayers: 6, hostPlays: true }, 6);
+  g.roundIndex = 0;
+  g.phase = 'ROUND_INTRO';
+
+  // Marcos y Ana confirman, Marta no → la espera sigue abierta
+  playerAction(g, marcos, { type: 'ready' }, out, true);
+  playerAction(g, ana, { type: 'ready' }, out, true);
+  const key = g.players.find((p) => p.id === marcos.id)!.readyFor;
+  assert.ok(key, 'Marcos había confirmado la espera');
+  assert.equal(g.phase, 'ROUND_INTRO');
+
+  // Marcos se cae y otro móvil toma el relevo pasada la gracia
+  marcos.connected = false;
+  marcos.lastSeen = Date.now() - TAKEOVER_GRACE_MS - 1;
+  const relief = takeOverPlayer(g, marcos.id, out);
+  assert.equal(relief.readyFor, null, 'el relevo no hereda una confirmación que no pulsó');
+  assert.equal(relief.ready, false);
+
+  // El relevo se conecta y confirma por sí mismo: ahora sí cuenta
+  relief.connected = true;
+  assert.equal(readyUp(g)!.count, 1, 'solo Ana sigue confirmada');
+});
+
+test('snapshot en pausa: al restaurar, los plazos internos no nacen caducados', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'casa-snap-'));
+  try {
+    const store = new GameStore({ snapshotDir: dir });
+    const g: Game = createGame('TESTK', { durationMin: 60, difficulty: 'normal', mode: 'clasico', expectedPlayers: 6, hostPlays: true });
+    for (const n of ['Ana', 'Carlos', 'Diego', 'Laura', 'Marcos', 'Marta']) addPlayer(g, n, '🐓');
+    const out = newOutbox();
+    g.roundIndex = 1;
+    g.phase = 'INVESTIGATION';
+    g.phaseEndsAt = Date.now() + 120_000;
+    hostAction(g, { type: 'pause' }, out, true);
+    assert.ok(g.pausedRemainingMs !== null);
+
+    // El servidor estuvo caído una hora: todos los plazos están vencidos en pared,
+    // pero en el momento de congelarse les quedaba margen.
+    g.pausedAt = Date.now() - 3_600_000;
+    g.event = { id: 'e59', title: 'El apagón', endsAt: g.pausedAt + 30_000 } as Game['event'];
+    g.truceUntil = g.pausedAt + 45_000;
+    g.missions.push({
+      id: 'm1', missionId: 'x', playerId: g.players[0].id, text: 'relámpago', difficulty: 'facil',
+      category: 'movil', reward: 10, targets: [], tags: [], status: 'active', assignedRound: 1, resolvedAt: null,
+      expiresAt: g.pausedAt + 20_000,
+    });
+    store.add(g);
+    await store.flush();
+
+    // La casa revive en otro proceso
+    const revived = new GameStore({ snapshotDir: dir });
+    await revived.init();
+    const r = revived.get(g.code)!;
+    const now = Date.now();
+    assert.equal(r.pausedRemainingMs, null, 'la pausa no sobrevive al reinicio');
+    assert.ok(r.phaseEndsAt !== null && r.phaseEndsAt > now, 'el temporizador de fase recupera su margen');
+    assert.ok(r.event!.endsAt! > now, 'el apagón revive con su cuenta atrás intacta');
+    assert.ok(r.truceUntil > now, 'la sobremesa no muere durante el apagón del servidor');
+    assert.ok(r.missions[0].expiresAt! > now, 'la misión relámpago no nace caducada');
+    assert.ok(r.players.every((p) => !p.connected), 'nadie queda conectado tras un reinicio');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

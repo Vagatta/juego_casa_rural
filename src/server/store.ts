@@ -20,9 +20,17 @@ function migrate(g: Game): Game {
   g.truceUntil ??= 0;
   g.flags.ladenVote ??= false;
   for (const p of g.players) { p.stats.votesCast ??= 0; p.readyFor ??= null; }
-  // Una pausa no sobrevive al reinicio: pausedAt sería del mundo viejo y al
-  // reanudar dispararía todos los plazos. La partida vuelve corriendo el tiempo.
+  // Una pausa no sobrevive al reinicio: la partida vuelve corriendo el tiempo.
+  // Los plazos internos se desplazan como haría resume — se congelaron en pausedAt
+  // y no deberían saltar al instante por el tiempo que el servidor estuvo caído.
   if (g.pausedRemainingMs !== null && g.pausedRemainingMs !== undefined) {
+    const pausedFor = g.pausedAt ? Date.now() - g.pausedAt : 0;
+    const hunt = g.challenge?.code;
+    if (hunt?.huntStartsAt) hunt.huntStartsAt += pausedFor;
+    if (g.pausedAt !== null && g.truceUntil > g.pausedAt) g.truceUntil += pausedFor;
+    if (g.event?.endsAt) g.event.endsAt += pausedFor;
+    if (g.auction) g.auction.endsAt += pausedFor;
+    for (const m of g.missions) if (m.status === 'active' && m.expiresAt) m.expiresAt += pausedFor;
     g.phaseEndsAt = Date.now() + g.pausedRemainingMs;
     g.pausedRemainingMs = null;
     g.pausedAt = null;

@@ -306,6 +306,7 @@ export function buildView(g: Game, viewer: Viewer): GameView {
     players: publicPlayers(g),
     phaseEndsAt: g.phaseEndsAt,
     pausedRemainingMs: g.pausedRemainingMs,
+    pausedAt: g.pausedAt,
     event: eventDef ? { id: eventDef.id, emoji: eventDef.emoji, title: eventDef.title, text: eventDef.text, endsAt: g.event!.endsAt, blackout: eventDef.effect.type === 'blackout' || undefined } : null,
     challenge: challengeView(g, me),
     market: [...g.market],

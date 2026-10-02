@@ -11,6 +11,7 @@ import {
   type PlayerState,
   activePlayers,
   earn,
+  gameNow,
   getPlayer,
   toast,
 } from './state.ts';
@@ -151,7 +152,7 @@ export function submitChallenge(g: Game, p: PlayerState, input: ChallengeInput, 
     case 'code_hunt': {
       const hunt = c.code!;
       if (c.status !== 'running' || !isParticipant) throw new GameError('Ahora no puedes introducir códigos');
-      if (!hunt.huntStartsAt || Date.now() < hunt.huntStartsAt) throw new GameError('Todavía se está escondiendo el código');
+      if (!hunt.huntStartsAt || gameNow(g) < hunt.huntStartsAt) throw new GameError('Todavía se está escondiendo el código');
       if (hunt.foundBy) throw new GameError('El código ya ha sido encontrado');
       const used = hunt.attempts[p.id] ?? 0;
       if (used >= CODE_HUNT_ATTEMPTS) throw new GameError('No te quedan intentos');
